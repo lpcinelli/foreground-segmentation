@@ -1,0 +1,29 @@
+Resnet com deep subtraction
+
+Para funcionar o esquema de convolucao 1x1 no final, uma entrada de TxT (patchSize x patchSize) deve ter como saida um unico valor (um unico pixel) e alem disso zero-padding de (T-1)/2 deve ser feito na imagem inicial
+
+
+Tres possibilidades:
+      patchSize = 27
+      model:add(layer(basicblock, 16, n))
+      model:add(layer(basicblock, 32, n, 3)) -- no padding (alterar codigo da func basicblock)
+      model:add(layer(basicblock, 64, n))
+      model:add(Avg(9, 9, 1, 1))
+
+      patchSize = 27
+      model:add(layer(basicblock, 16, n))
+      model:add(layer(basicblock, 64, n))
+      model:add(layer(basicblock, 32, n, 3)) -- no padding (alterar codigo da func basicblock)
+      model:add(Avg(9, 9, 1, 1))
+
+      patchSize = 32 -- problema: quem seria o pixel central?
+      model:add(layer(basicblock, 16, n))
+      model:add(layer(basicblock, 64, n, 2))
+      model:add(layer(basicblock, 32, n, 2))
+      model:add(Avg(8, 8, 1, 1))
+
+      patchSize = 28 -- problema: quem seria o pixel central?
+      model:add(layer(basicblock, 16, n))
+      model:add(layer(basicblock, 64, n, 2))
+      model:add(layer(basicblock, 32, n, 2))
+      model:add(Avg(8, 8, 1, 1))

@@ -1,14 +1,14 @@
-import os
-import pandas as pd
-import glob2 as glob
-
 import argparse
 import hashlib
+import json
 import os
 import tarfile
 
-import distutils
-import json
+import glob2 as glob
+import numpy as np
+import pandas as pd
+from tqdm import tqdm
+from PIL import Image
 
 URL = "http://wordpress-jodoin.dmi.usherb.ca/static/dataset/dataset2014.zip"
 MD5 = "054a98b09b642b61e22265f9374e75d6"
@@ -49,26 +49,30 @@ def unpack(filepath, target_dir, rm_tar=False):
         os.remove(filepath)
 
 
-def read_data(data_dir):
+def read_data(data_dir, nb_bg_frames=150):
 
     new_types = [
         'badWeather', 'PTZ', 'turbulence', 'nightVideos', 'lowFramerate'
     ]
+    print('Searching for images... ', end='')
     files = glob.glob(
         os.path.join(data_dir, '**{}input{}*.*'.format(os.path.sep,
                                                        os.path.sep)),
         recursive=True)
     files.sort()
+    print(' Found {} files'.format(len(files)))
     frame_list = []
+    bg_groups = {}
 
-    for filepath in files:
+    print('Gathering information...')
+    for filepath in tqdm(files):
         info = filepath.split(os.path.sep)
         video_type = info[-4]
-        video = info[-3]
+        video_name = info[-3]
         input_frame = info[-1]
 
         frame_nb = int(info[-1].split('.')[0][2:])
-        target_frame = 'gt{:06d}.jpg'.format(frame_nb)
+        target_frame = 'gt{:06d}.png'.format(frame_nb)
 
         videotype_dir = os.path.dirname(os.path.dirname(filepath))
 
@@ -81,14 +85,37 @@ def read_data(data_dir):
             if video_type in new_types:
                 roi_end = int((roi_end + roi_start) / 2) - 1
 
+            if frame_nb <= nb_bg_frames:
+                if '{}-{}'.format(video_type, video_name) not in bg_groups:
+                    bg_groups['{}-{}'.format(video_type, video_name)] = []
+
+                bg_groups['{}-{}'.format(video_type, video_name)].append(
+                    np.asarray(
+                        Image.open(
+                            os.path.join(data_dir, video_type, video_name,
+                                         'input', input_frame))))
+
             if frame_nb < roi_start or frame_nb > roi_end:
                 continue
 
-        frame_list.append([video_type, video, input_frame, target_frame])
+        frame_list.append([video_type, video_name, input_frame, target_frame])
+
+    bg_groups = {
+        k: np.median(np.stack(v, axis=0).astype(np.float), axis=0)
+        for k, v in bg_groups.items()
+    }
 
     df = pd.DataFrame(
         frame_list,
         columns=['video_type', 'video_name', 'input_frame', 'target_frame'])
+
+    print('Saving bg models... ', end='')
+    for k, v in bg_groups.items():
+        video_type, video_name = k.split('-', maxsplit=1)
+
+        Image.fromarray(v.astype(np.uint8)).save(
+            os.path.join(data_dir, video_type, video_name, 'bg_model.jpg'))
+    print('Ok!')
 
     return df
 
@@ -101,9 +128,6 @@ def create_manifest(data_dir, manifest_path, rate):
     print("Creating manifests ...")
     data_df = read_data(data_dir)
     train, val = split(data_df, rate)
-
-    print(train)
-    print(val)
 
     train.to_csv('{}.train'.format(manifest_path), index=False)
     val.to_csv('{}.val'.format(manifest_path), index=False)

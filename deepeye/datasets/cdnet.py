@@ -18,7 +18,7 @@ from ..transforms import ToTensor
 
 class CDNetDataset(data.Dataset):
 
-    def __init__(self, file_path, database_path, transform=None):
+    def __init__(self, manifest_path, database_path, transform=None):
         '''
         Inits an ImageFile instance.
 
@@ -30,10 +30,10 @@ class CDNetDataset(data.Dataset):
 
         # Loads data
         self.database_path = database_path
-        data = self.from_file(file_path)
+        data = self.from_file(manifest_path)
 
         if len(data) == 0:
-            raise(RuntimeError("Found 0 images in path: " + file_path + "\n" +
+            raise(RuntimeError("Found 0 images in path: " + manifest_path + "\n" +
                                "Supported image extensions are: " +
                                ",".join(IMG_EXTENSIONS)))
 
@@ -41,9 +41,8 @@ class CDNetDataset(data.Dataset):
         self.data = data
 
         # Saving data
-        self.file_path = file_path
+        self.manifest_path = manifest_path
         self.transform = transform
-        self.target_transform = target_transform
 
     def __getitem__(self, index):
         '''
@@ -67,7 +66,7 @@ class CDNetDataset(data.Dataset):
             input_, target, roi = self.transform((input_, bg_model, target, roi))
 
         # Return
-        return input_, target, roi
+        return input_, bg_model, target, roi
 
     def __len__(self):
         '''
@@ -98,7 +97,7 @@ class CDNetDataset(data.Dataset):
                                        row['target_frame'])
 
             roi_path = os.path.join(self.database_path, row['video_type'],
-                                    row['video_name'], 'ROI.jpg')
+                                    row['video_name'], 'ROI.bmp')
 
             imgs.append((input_path, bg_path))
             targets.append((target_path, roi_path))

@@ -4,21 +4,59 @@ import torch
 import numpy as np
 
 
-def f2_score(y_pred, y_true, threshold=0.5):
-    return fbeta_score(y_pred, y_true, 2, threshold)
+def acc_score():
+    pass
 
 
-def fbeta_score(y_pred, y_true, beta, threshold, eps=1e-9):
+def prec_score():
+    pass
+
+
+def recall_score():
+    pass
+
+
+def f1_score(y_pred, y_true, threshold=0.5):
+    # Dice's index : 2*TP/(2*TP + FP + FN)
+    return fbeta_score(y_pred, y_true, 1, threshold)
+
+
+def fbeta_score(y_pred, y_true, beta, threshold=0.5, eps=1e-12):
     beta2 = beta**2
 
-    y_pred = torch.gt(torch.sigmoid(y_pred.float()), threshold).float()
-    y_true = y_true.float()
+    y_pred = (torch.sigmoid(y_pred.float()) > threshold).float() * roi
+    y_true = y_true.float() * roi
 
     true_positive = (y_pred * y_true).sum(dim=1)
-    precision = true_positive.div(y_pred.sum(dim=1).add(eps))
-    recall = true_positive.div(y_true.sum(dim=1).add(eps))
+    precision = true_positive / (y_pred.sum(dim=1) + eps)
+    recall = true_positive / (y_true.sum(dim=1) + eps)
 
-    return torch.mean(
-        (precision * recall).
-        div(precision.mul(beta2) + recall + eps).
-        mul(1 + beta2))
+    return torch.sum((1 + beta2) * (precision * recall) /
+                     (precision * beta2 + recall + eps)) / roi.sum()
+
+
+def false_pos_rate():
+    pass
+
+
+def false_neg_rate():
+    pass
+
+
+def true_pos_rate():
+    return recall_score()
+
+
+def true_neg_rate():
+    pass
+
+
+def IoU_score():
+    # Jaccard's index : TP/(TP + FP + FN)
+    pass
+
+
+def total_error():
+    # Total error: (FN + FP)/(TP + FP + TN + FN)
+    # https://stats.stackexchange.com/questions/273537/f1-dice-score-vs-iou
+    pass

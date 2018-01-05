@@ -18,7 +18,7 @@ from ..transforms import ToTensor
 
 class CDNetDataset(data.Dataset):
 
-    def __init__(self, file_path, transform=None, target_transform=None):
+    def __init__(self, file_path, database_path, transform=None):
         '''
         Inits an ImageFile instance.
 
@@ -29,6 +29,7 @@ class CDNetDataset(data.Dataset):
         '''
 
         # Loads data
+        self.database_path = database_path
         data = self.from_file(file_path)
 
         if len(data) == 0:
@@ -36,13 +37,13 @@ class CDNetDataset(data.Dataset):
                                "Supported image extensions are: " +
                                ",".join(IMG_EXTENSIONS)))
 
+        # Main data
+        self.data = data
+
         # Saving data
         self.file_path = file_path
         self.transform = transform
         self.target_transform = target_transform
-
-        # Main data
-        self.data = data
 
     def __getitem__(self, index):
         '''
@@ -54,20 +55,19 @@ class CDNetDataset(data.Dataset):
         '''
 
         # Get single data
-        input_, target = self.data[index]
+        (input_, bg_model), (target, roi) = self.data[index]
 
         input_ = self.loader(input_)
+        bg_model = self.loader(bg_model)
+        target = self.loader(target)
+        roi = self.loader(roi)
 
         # Transforming image
         if self.transform is not None:
-            input_ = self.transform(input_)
-
-        # Transforming target labels
-        if self.target_transform is not None:
-            target = self.target_transform(target)
+            input_, target, roi = self.transform((input_, bg_model, target, roi))
 
         # Return
-        return input_, target
+        return input_, target, roi
 
     def __len__(self):
         '''
@@ -77,39 +77,50 @@ class CDNetDataset(data.Dataset):
         '''
         return len(self.data)
 
-    def loader(self):
-        return NotImplementedError
+    def loader(self, path):
+        return default_loader(path)
 
-    def from_file(self, file_path):
-        return NotImplementedError
+    def from_file(self, csv_file):
+        # Opening file
+        dataset = pd.read_csv(csv_file)
+        imgs, targets = [], []
 
-def stats(args):
-    from .preprocessing import get_mean_and_std
+        for i, row in dataset.iterrows():
+            input_path = os.path.join(self.database_path, row['video_type'],
+                                      row['video_name'], 'input',
+                                      row['input_frame'])
 
-    datasets = ForestDataset(args.csv_file, args.imgs_dir,
-                             transform=ToTensor())
+            bg_path = os.path.join(self.database_path, row['video_type'],
+                                   row['video_name'], 'bg_model.jpg')
 
-    mean, std = get_mean_and_std(datasets)
+            target_path = os.path.join(self.database_path, row['video_type'],
+                                       row['video_name'], 'groundtruth',
+                                       row['target_frame'])
 
-    print('Mean: %s\nStd: %s' % (mean, std))
+            roi_path = os.path.join(self.database_path, row['video_type'],
+                                    row['video_name'], 'ROI.jpg')
 
+            imgs.append((input_path, bg_path))
+            targets.append((target_path, roi_path))
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description='Forest dataset preprocessing')
-    parser.add_argument("csv_file", type=str)
+        return list(zip(imgs, targets))
 
-    subparsers = parser.add_subparsers()
+def transforms(num_channels, training=False, augmentation=False):
 
-    parser_split = subparsers.add_parser('split')
-    parser_split.add_argument("rate", nargs='+', type=float)
-    parser_split.add_argument("--output", nargs='+', type=str, default=None)
-    parser_split.set_defaults(func=split)
+    if not training and augmentation:
+        raise ValueError('Combinations of parameters not permitted. '
+                         'training=False, augmentation=True')
 
-    parser_stats = subparsers.add_parser('stats')
-    parser_stats.add_argument("--imgs-dir", type=str,
-                              default='data/train-tif')
-    parser_stats.set_defaults(func=stats)
+    compose = [ToTensor()]
 
-    args = parser.parse_args()
-    args.func(args)
+    if not augmentation:
+        compose = [vision_transforms.CenterCrop(224)] + compose
+    else:
+        compose = [vision_transforms.RandomSizedCrop(224),
+                   vision_transforms.RandomHorizontalFlip()] + compose
+
+    if not training:
+        compose = [vision_transforms.Scale(W)] + compose
+
+    return vision_transforms.Compose(compose)
+

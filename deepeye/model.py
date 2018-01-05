@@ -154,7 +154,7 @@ class Model(object):
 
         callback.on_step_begin(len(loader), mode=mode)
 
-        for batch, (input, target) in enumerate(loader):
+        for batch, (input, target, roi) in enumerate(loader):
             batch_size = input.size(0)
 
             callback.on_batch_begin(batch, batch_size)
@@ -164,7 +164,9 @@ class Model(object):
             if mode != 'predict':
                 if self.cuda:
                     target = target.cuda(async=async)
+                    roi = roi.cuda(async=async)
                 target_var = torch.autograd.Variable(target, volatile=volatile)
+                roi_var = torch.autograd.Variable(roi, volatile=volatile)
 
             # Compute output
             output = self.arch(input_var)
@@ -173,13 +175,13 @@ class Model(object):
                     seen:seen + batch_size, ...] = output.data.cpu().numpy()
                 seen += batch_size
             else:
-                loss = self.criterion(output, target_var)
+                loss = self.criterion(output, target_var, roi=roi_var)
 
                 # Updating meters
                 meters['{}_loss'.format(mode)].update(loss.data[0], batch_size)
                 for name, metric in metrics.items():
                     meters['{}_{}'.format(mode, name)].update(
-                        metric(output, target_var).data[0], batch_size)
+                        metric(output, target_var, roi=roi_var).data[0], batch_size)
 
                 if mode == 'train':
                     # compute gradient and do SGD step

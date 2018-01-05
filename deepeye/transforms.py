@@ -3,6 +3,7 @@ import torch
 from PIL import Image
 from torchvision.transforms import transforms
 import torchvision.transforms.functional as F
+import random
 
 
 class Resize(transforms.Resize):
@@ -16,6 +17,7 @@ class Resize(transforms.Resize):
         interpolation (int, optional): Desired interpolation. Default is
             ``PIL.Image.BILINEAR``
     """
+
     def __call__(self, imgs):
         """
         Args:
@@ -23,7 +25,9 @@ class Resize(transforms.Resize):
         Returns:
             PIL Image: Rescaled image.
         """
-        return tuple(map(lambda x: F.resize(x, self.size, self.interpolation), imgs))
+        return tuple(
+            map(lambda x: F.resize(x, self.size, self.interpolation), imgs))
+
 
 class CenterCrop(transforms.CenterCrop):
     """Crops the given PIL Image at the center.
@@ -32,6 +36,7 @@ class CenterCrop(transforms.CenterCrop):
             int instead of sequence like (h, w), a square crop (size, size) is
             made.
     """
+
     def __call__(self, imgs):
         """
         Args:
@@ -53,6 +58,7 @@ class RandomCrop(transforms.RandomCrop):
             4 is provided, it is used to pad left, top, right, bottom borders
             respectively.
     """
+
     def __call__(self, imgs):
         """
         Args:
@@ -63,13 +69,14 @@ class RandomCrop(transforms.RandomCrop):
         if self.padding > 0:
             imgs = tuple(map(lambda x: F.pad(x, self.padding), imgs))
 
-        i, j, h, w = self.get_params(img, self.size)
+        i, j, h, w = self.get_params(imgs[0], self.size)
 
-        return tuple(map(lambda x: F.crop(x,  i, j, h, w), imgs))
+        return tuple(map(lambda x: F.crop(x, i, j, h, w), imgs))
 
 
 class RandomHorizontalFlip(transforms.RandomHorizontalFlip):
     """Horizontally flip the given PIL Image randomly with a probability of 0.5."""
+
     def __call__(self, imgs):
         """
         Args:
@@ -94,6 +101,7 @@ class ColorJitter(transforms.ColorJitter):
         hue(float): How much to jitter hue. hue_factor is chosen uniformly from
             [-hue, hue]. Should be >=0 and <= 0.5.
     """
+
     def __call__(self, imgs):
         """
         Args:
@@ -126,6 +134,7 @@ class RandomRotation(transforms.RandomRotation):
             Origin is the upper left corner.
             Default is the center of the image.
     """
+
     def __call__(self, imgs):
         """
             img (PIL Image): Image to be rotated.
@@ -135,9 +144,9 @@ class RandomRotation(transforms.RandomRotation):
 
         angle = self.get_params(self.degrees)
 
-        return tuple(map(lambda x: F.rotate(x, angle, self.resample,
-                                           self.expand, self.center),
-                        imgs))
+        return tuple(
+            map(lambda x: F.rotate(x, angle, self.resample, self.expand, self.center),
+                imgs))
 
 
 class Grayscale(transforms.Grayscale):
@@ -149,6 +158,7 @@ class Grayscale(transforms.Grayscale):
         - If num_output_channels == 1 : returned image is single channel
         - If num_output_channels == 3 : returned image is 3 channel with r == g == b
     """
+
     def __call__(self, imgs):
         """
         Args:
@@ -158,9 +168,12 @@ class Grayscale(transforms.Grayscale):
         """
         input_, bg_model, target, roi = imgs
 
-        return (F.to_grayscale(input, num_output_channels=self.num_output_channels),
-                F.to_grayscale(bg_model, num_output_channels=self.num_output_channels),
+        return (F.to_grayscale(
+            input_, num_output_channels=self.num_output_channels),
+                F.to_grayscale(
+                    bg_model, num_output_channels=self.num_output_channels),
                 target, roi)
+
 
 class MergeChannels(object):
     def __call__(self, imgs):

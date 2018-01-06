@@ -6,7 +6,8 @@ from torch.nn.modules.module import Module
 
 
 class MaskedBinaryCrossEntropy(Module):
-    def forward(self, input, target, roi=roi):
+    def forward(self, input, target, roi=None):
+        roi = roi or torch.ones_like(input)
         return F.binary_cross_entropy(
                torch.sigmoid(input), target, size_average=False) * roi).sum()/roi.sum()
 
@@ -21,7 +22,8 @@ class MaskedDiceLoss(Module):
         self.eps = eps
         self.smooth = smooth
 
-    def forward(self, input, target, roi=roi):
+    def forward(self, input, target, roi=None):
+        roi = roi or torch.ones_like(input)
         input = (torch.sigmoid(input) > self.th).float()
         intersect = (input * target * roi).view(input.size(0), -1).sum(1)
         union = ((input + target) * roi).view(input.size(0), -1).sum(1)

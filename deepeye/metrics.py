@@ -21,7 +21,8 @@ def f1_score(y_pred, y_true, threshold=0.5):
     return fbeta_score(y_pred, y_true, 1, threshold)
 
 
-def fbeta_score(y_pred, y_true, beta, threshold=0.5, eps=1e-12):
+def fbeta_score(y_pred, y_true, roi=None, beta=1, threshold=0.5, eps=1e-12):
+    roi = roi or torch.ones_like(y_pred)
     beta2 = beta**2
 
     y_pred = (torch.sigmoid(y_pred.float()) > threshold).float() * roi

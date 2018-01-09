@@ -52,3 +52,4 @@ from torchvision.models import *
 from .toynet import *
 from .resnet import *
 from .densenet import *
+from .lenet import *

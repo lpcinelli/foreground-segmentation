@@ -1,11 +1,9 @@
-from torch import nn
-from torch.nn import init
-import torch.nn.functional as F
-
-import math
 import warnings
 
-from ..utils.generic_utils import compute_pad_size, compute_output_size
+from torch import nn
+from torch.nn import init
+
+from ..utils.generic_utils import compute_output_size, compute_pad_size
 
 __all__ = [
     'LeNetDecoder', 'lenetdecoder', 'LeNetDeconv', 'lenetdeconv',
@@ -23,7 +21,7 @@ class LeNet(nn.Module):
     def __init__(self, input_shape):
         super(LeNet, self).__init__()
 
-        C, H, W = input_shape
+        _, H, W = input_shape
 
         self.block1 = nn.Sequential(
             nn.Conv2d(C, 6, kernel_size=5, padding=2),
@@ -93,7 +91,7 @@ class LeNetUpSample(nn.Module):
     def __init__(self, input_shape, upsampling='bilinear'):
         super(LeNetUpSample, self).__init__()
 
-        C, H, W = input_shape
+        _, H, W = input_shape
 
         self.base = LeNet(input_shape)
 
@@ -129,7 +127,7 @@ class LeNetDeconv(nn.Module):
     def __init__(self, input_shape, upsampling='bilinear'):
         super(LeNetDeconv, self).__init__()
 
-        C, H, W = input_shape
+        _, H, W = input_shape
 
         self.base = LeNet(input_shape)
 
@@ -186,7 +184,7 @@ class LeNetDecoder(nn.Module):
     def __init__(self, input_shape, upsampling='bilinear'):
         super(LeNetDecoder, self).__init__()
 
-        C, H, W = input_shape
+        _, H, W = input_shape
 
         self.base = LeNet(input_shape)
 

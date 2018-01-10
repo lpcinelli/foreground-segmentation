@@ -1,17 +1,17 @@
 import os
-import time
 import shutil
+import time
+from collections import OrderedDict
+
 import numpy as np
 import torch
 
 from inflection import titleize
 
-from collections import OrderedDict
 from .utils.generic_utils import AverageMeter
 
 
 class Callback(object):
-
     def __init__(self):
         pass
 
@@ -46,10 +46,9 @@ class Callback(object):
 
 
 class Compose(Callback):
-
     def __init__(self, callbacks=[]):
-        if len(callbacks) and not all([isinstance(c, Callback)
-                                       for c in callbacks]):
+        if len(callbacks) and not all(
+            [isinstance(c, Callback) for c in callbacks]):
             raise ValueError('All callbacks must be an instance of Callback')
 
         self.callbacks = callbacks
@@ -92,7 +91,6 @@ class Compose(Callback):
 
 
 class Progbar(Callback):
-
     def __init__(self, print_freq=0):
         self.print_freq = print_freq
 
@@ -122,28 +120,34 @@ class Progbar(Callback):
         if self.batch % self.print_freq == 0:
             msg = []
             if self.mode.startswith('train'):
-                msg += ['Epoch: [{0}][{1}/{2}]\t'.format(self.epoch,
-                                                         self.batch,
-                                                         self.size)]
+                msg += [
+                    'Epoch: [{0}][{1}/{2}]\t'.format(self.epoch, self.batch,
+                                                     self.size)
+                ]
             else:
-                msg += ['{0}: [{1}/{2}]\t'.format(titleize(self.mode),
-                                                  self.batch,
-                                                  self.size)]
+                msg += [
+                    '{0}: [{1}/{2}]\t'.format(
+                        titleize(self.mode), self.batch, self.size)
+                ]
 
             msg += ['Time {0.val:.3f} ({0.avg:.3f})\t'.format(self.batch_time)]
             msg += ['Data {0.val:.3f} ({0.avg:.3f})\t'.format(self.data_time)]
 
             # Add metrics alongsise with the loss
-            msg += ['{0} {1.val:.3f} ({1.avg:.3f})\t'
-                    .format(titleize(name), meter)
-                    for name, meter in metrics.items()]
+            msg += [
+                '{0} {1.val:.3f} ({1.avg:.3f})\t'.format(
+                    titleize(name), meter) for name, meter in metrics.items()
+            ]
 
             print(''.join(msg))
 
 
 class ModelCheckpoint(Callback):
-
-    def __init__(self, filepath, monitor, mode='min', save_best=True,
+    def __init__(self,
+                 filepath,
+                 monitor,
+                 mode='min',
+                 save_best=True,
                  history=OrderedDict()):
         self.filepath = filepath
         self.monitor = monitor
@@ -200,7 +204,6 @@ class ModelCheckpoint(Callback):
 
 
 class LearningRateScheduler(Callback):
-
     def __init__(self, scheduler):
         self.scheduler = scheduler
 
@@ -214,15 +217,18 @@ class LearningRateScheduler(Callback):
 
 
 class Visdom(Callback):
-    def __init__(self, server='http://localhost', port=8097, env='main',
+    def __init__(self,
+                 server='http://localhost',
+                 port=8097,
+                 env='main',
                  history=OrderedDict()):
         from visdom import Visdom
         self.viz = Visdom(server=server, port=port, env=env)
         self.history = history
 
     def on_begin(self, start_epoch=None, end_epoch=None, metrics_name=None):
-        self.modes, self.metrics = zip(*[metric.split('_', 1)
-                                         for metric in metrics_name])
+        self.modes, self.metrics = zip(
+            *[metric.split('_', 1) for metric in metrics_name])
 
         self.metrics = list(OrderedDict.fromkeys(self.metrics))
         self.modes = list(OrderedDict.fromkeys(self.modes))
@@ -230,11 +236,14 @@ class Visdom(Callback):
 
         self.viz_windows = {m: None for m in self.metrics}
 
-        self.opts = {m: dict(title=titleize(m), ylabel=titleize(m),
-                             xlabel='Epoch',
-                             legend=[titleize(mode)
-                                     for mode in self.modes])
-                     for m in self.metrics}
+        self.opts = {
+            m: dict(
+                title=titleize(m),
+                ylabel=titleize(m),
+                xlabel='Epoch',
+                legend=[titleize(mode) for mode in self.modes])
+            for m in self.metrics
+        }
 
         if not len(self.history):
             for name in metrics_name:
@@ -244,12 +253,14 @@ class Visdom(Callback):
         if start_epoch != 0:
             for m in self.metrics:
                 self.viz_windows[m] = self.viz.line(
-                    X=np.column_stack(
-                        [self.history['epochs'][0:start_epoch]
-                         for _ in self.modes]),
-                    Y=np.column_stack(
-                        [self.history['{}_{}'.format(mode, m)][0:start_epoch]
-                         for mode in self.modes]),
+                    X=np.column_stack([
+                        self.history['epochs'][0:start_epoch]
+                        for _ in self.modes
+                    ]),
+                    Y=np.column_stack([
+                        self.history['{}_{}'.format(mode, m)][0:start_epoch]
+                        for mode in self.modes
+                    ]),
                     opts=self.opts[m])
 
     def on_epoch_begin(self, epoch):
@@ -263,20 +274,24 @@ class Visdom(Callback):
         for m in self.metrics:
             if self.viz_windows[m] is None:
                 self.viz_windows[m] = self.viz.line(
-                    X=np.column_stack(
-                        [self.history['epochs'][0:self.epoch + 1]
-                         for _ in self.modes]),
-                    Y=np.column_stack(
-                        [self.history['{}_{}'.format(mode, m)][0:self.epoch + 1]
-                         for mode in self.modes]),
+                    X=np.column_stack([
+                        self.history['epochs'][0:self.epoch + 1]
+                        for _ in self.modes
+                    ]),
+                    Y=np.column_stack([
+                        self.history['{}_{}'.format(mode, m)][0:self.epoch + 1]
+                        for mode in self.modes
+                    ]),
                     opts=self.opts[m])
             else:
                 self.viz.line(
-                    X=np.column_stack(
-                        [self.history['epochs'][0:self.epoch + 1]
-                         for _ in self.modes]),
-                    Y=np.column_stack(
-                        [self.history['{}_{}'.format(mode, m)][0:self.epoch + 1]
-                         for mode in self.modes]),
+                    X=np.column_stack([
+                        self.history['epochs'][0:self.epoch + 1]
+                        for _ in self.modes
+                    ]),
+                    Y=np.column_stack([
+                        self.history['{}_{}'.format(mode, m)][0:self.epoch + 1]
+                        for mode in self.modes
+                    ]),
                     win=self.viz_windows[m],
                     update='replace')

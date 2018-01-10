@@ -1,9 +1,11 @@
+import random
+
 import numpy as np
 import torch
 from PIL import Image
-from torchvision.transforms import transforms
+
 import torchvision.transforms.functional as F
-import random
+from torchvision.transforms import transforms
 
 
 class Resize(transforms.Resize):

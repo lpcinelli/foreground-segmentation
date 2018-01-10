@@ -1,14 +1,14 @@
 import argparse
 import hashlib
-import json
 import os
 import tarfile
 
 import glob2 as glob
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
 from PIL import Image
+
+from tqdm import tqdm
 
 URL = "http://wordpress-jodoin.dmi.usherb.ca/static/dataset/dataset2014.zip"
 MD5 = "054a98b09b642b61e22265f9374e75d6"

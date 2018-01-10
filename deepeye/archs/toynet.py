@@ -1,9 +1,9 @@
-from torch import nn
-from torch.nn import init
-import torch.nn.functional as F
-
 import math
 import warnings
+
+import torch.nn.functional as F
+from torch import nn
+from torch.nn import init
 
 __all__ = ['ToyNet', 'toynet']
 

@@ -1,16 +1,14 @@
 from collections import OrderedDict
 
 import numpy as np
-
 import torch
 import torch.nn as nn
 
-from .callbacks import Progbar, Callback
+from .callbacks import Callback, Progbar
 from .utils.generic_utils import AverageMeter
 
 
 class Model(object):
-
     def __init__(self, arch, criterion=None, optimizer=None):
         if not isinstance(arch, nn.Module):
             raise ValueError('Arch should be an instance of torch.nn.Module')
@@ -48,8 +46,13 @@ class Model(object):
             raise ValueError('criterion was not set')
         return self._criterion
 
-    def fit_loader(self, loader, epochs, val_loader=None, metrics={},
-                   callback=None, start_epoch=0):
+    def fit_loader(self,
+                   loader,
+                   epochs,
+                   val_loader=None,
+                   metrics={},
+                   callback=None,
+                   start_epoch=0):
         if not isinstance(loader, torch.utils.data.DataLoader):
             raise ValueError('loader should be a instance of '
                              'torch.utils.data.DataLoader')
@@ -62,15 +65,16 @@ class Model(object):
         if not isinstance(callback, Callback):
             raise ValueError('callback should be a instance of Callback')
 
-        names = ['{{}}_{}'.format(name.replace('_', '-'))
-                 for name in ['loss'] + list(metrics.keys())]
+        names = [
+            '{{}}_{}'.format(name.replace('_', '-'))
+            for name in ['loss'] + list(metrics.keys())
+        ]
         metrics_name = [n.format('train') for n in names]
         if val_loader:
             metrics_name += [n.format('val') for n in names]
 
-        callback.set_params(arch=self.arch,
-                            optimizer=self.optimizer,
-                            criterion=self.criterion)
+        callback.set_params(
+            arch=self.arch, optimizer=self.optimizer, criterion=self.criterion)
 
         callback.on_begin(start_epoch, epochs, metrics_name)
 
@@ -79,13 +83,13 @@ class Model(object):
             callback.on_epoch_begin(epoch)
 
             # train for one epoch
-            train_metrics = self._step_loader(loader, callback,
-                                              metrics=metrics, mode='train')
+            train_metrics = self._step_loader(
+                loader, callback, metrics=metrics, mode='train')
 
             if val_loader:
                 # evaluate
-                val_metrics = self._step_loader(val_loader, callback,
-                                                metrics=metrics, mode='val')
+                val_metrics = self._step_loader(
+                    val_loader, callback, metrics=metrics, mode='val')
                 train_metrics.update(val_metrics)
 
             callback.on_epoch_end(train_metrics)
@@ -99,16 +103,17 @@ class Model(object):
 
         callback = callback or Progbar(print_freq=len(loader) - 1)
 
-        callback.set_params(arch=self.arch,
-                            criterion=self.criterion)
+        callback.set_params(arch=self.arch, criterion=self.criterion)
 
-        names = ['{}'.format(name.replace('_', '-'))
-                 for name in ['loss'] + list(metrics.keys())]
+        names = [
+            '{}'.format(name.replace('_', '-'))
+            for name in ['loss'] + list(metrics.keys())
+        ]
 
         callback.on_begin(metrics_name=names)
         callback.on_epoch_begin(0)
-        metrics = self._step_loader(loader, callback, metrics=metrics,
-                                    mode='test')
+        metrics = self._step_loader(
+            loader, callback, metrics=metrics, mode='test')
         callback.on_epoch_end(metrics)
         callback.on_end()
 
@@ -131,13 +136,17 @@ class Model(object):
 
         return outputs
 
-    def _step_loader(self, loader, callback, metrics={}, mode='train',
+    def _step_loader(self,
+                     loader,
+                     callback,
+                     metrics={},
+                     mode='train',
                      async=True):
 
         meters = OrderedDict()
         if mode == 'predict':
-            outputs = np.zeros((len(loader.dataset),
-                                len(loader.dataset.classes)))
+            outputs = np.zeros((len(loader.dataset), len(
+                loader.dataset.classes)))
             seen = 0
         else:
             meters['{}_loss'.format(mode)] = AverageMeter()
@@ -171,8 +180,8 @@ class Model(object):
             # Compute output
             output = self.arch(input_var)
             if mode == 'predict':
-                outputs[
-                    seen:seen + batch_size, ...] = output.data.cpu().numpy()
+                outputs[seen:seen + batch_size, ..
+                        .] = output.data.cpu().numpy()
                 seen += batch_size
             else:
                 loss = self.criterion(output, target_var, roi=roi_var)
@@ -181,7 +190,8 @@ class Model(object):
                 meters['{}_loss'.format(mode)].update(loss.data[0], batch_size)
                 for name, metric in metrics.items():
                     meters['{}_{}'.format(mode, name)].update(
-                        metric(output, target_var, roi=roi_var).data[0], batch_size)
+                        metric(output, target_var, roi=roi_var).data[0],
+                        batch_size)
 
                 if mode == 'train':
                     # compute gradient and do SGD step

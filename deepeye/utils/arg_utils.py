@@ -4,6 +4,7 @@ arg_utils.py
 Argument treatment utilities.
 '''
 
+
 def cast_arg(arg):
     '''
     Cast args to the correct type.
@@ -30,6 +31,7 @@ def cast_arg(arg):
     # A string
     return arg
 
+
 def parse_kwparams(kwlst):
     '''
     Parses key-worded parameters.
@@ -42,7 +44,7 @@ def parse_kwparams(kwlst):
     # Testing if is empty
     if kwlst:
         # Set in dictionary form
-        kwparams = {k: cast_arg(v) for k,v in zip(kwlst[::2], kwlst[1::2])}
+        kwparams = {k: cast_arg(v) for k, v in zip(kwlst[::2], kwlst[1::2])}
         return kwparams
     else:
         # Return empty dictionary

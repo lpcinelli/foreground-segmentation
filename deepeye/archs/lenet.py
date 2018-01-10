@@ -7,8 +7,10 @@ import warnings
 
 from ..utils.generic_utils import compute_pad_size, compute_output_size
 
-__all__ = ['LeNetDecoder', 'lenetdecoder', 'LeNetDeconv', 'lenetdeconv',
-           'LeNetUpSample', 'lenetupsample']
+__all__ = [
+    'LeNetDecoder', 'lenetdecoder', 'LeNetDeconv', 'lenetdeconv',
+    'LeNetUpSample', 'lenetupsample'
+]
 
 upsampling_modes = ['nearest', 'bilinear']
 
@@ -17,49 +19,55 @@ class LeNet(nn.Module):
     """ Base Lenet(ish) network that compresses information
         and on which all variants are built upon.
     """
+
     def __init__(self, input_shape):
         super(LeNet, self).__init__()
 
         C, H, W = input_shape
 
         self.block1 = nn.Sequential(
-
             nn.Conv2d(C, 6, kernel_size=5, padding=2),
             nn.BatchNorm2d(6),
             nn.ReLU(inplace=True),
         )
-        
-        self.block2 = nn.Sequential(
 
+        self.block2 = nn.Sequential(
             nn.Conv2d(6, 16, kernel_size=5, padding=2),
             nn.BatchNorm2d(16),
             nn.ReLU(inplace=True),
         )
 
         self.block3 = nn.Sequential(
-
             nn.Conv2d(16, 120, kernel_size=3, padding=1),
             nn.BatchNorm2d(120),
             nn.ReLU(inplace=True),
         )
 
-        self.pad1 = compute_pad_size((H,W), (3,3), (2,2))
-        self.pool1 = nn.MaxPool2d(kernel_size=(3,3), stride=(2,2),
-                                  padding=self.pad1, return_indices=True,
-                                  ceil_mode=True)
-       
-        out1 = compute_output_size((H,W),(3,3), (2,2), self.pad1)
-        self.pad2 = compute_pad_size(out1, (3,3), (2,2))
-        self.pool2 = nn.MaxPool2d(kernel_size=(3,3), stride=(2,2),
-                                  padding=self.pad2, return_indices=True,
-                                  ceil_mode=True)
-        
-        out2 = compute_output_size(out1,(3,3), (2,2), self.pad2)
-        self.pad3 = compute_pad_size(out2, (3,3), (2,2))
-        self.pool3 = nn.MaxPool2d(kernel_size=(3,3), stride=(2,2),
-                                  padding=self.pad3, return_indices=True,
-                                  ceil_mode=True)
-        
+        self.pad1 = compute_pad_size((H, W), (3, 3), (2, 2))
+        self.pool1 = nn.MaxPool2d(
+            kernel_size=(3, 3),
+            stride=(2, 2),
+            padding=self.pad1,
+            return_indices=True,
+            ceil_mode=True)
+
+        out1 = compute_output_size((H, W), (3, 3), (2, 2), self.pad1)
+        self.pad2 = compute_pad_size(out1, (3, 3), (2, 2))
+        self.pool2 = nn.MaxPool2d(
+            kernel_size=(3, 3),
+            stride=(2, 2),
+            padding=self.pad2,
+            return_indices=True,
+            ceil_mode=True)
+
+        out2 = compute_output_size(out1, (3, 3), (2, 2), self.pad2)
+        self.pad3 = compute_pad_size(out2, (3, 3), (2, 2))
+        self.pool3 = nn.MaxPool2d(
+            kernel_size=(3, 3),
+            stride=(2, 2),
+            padding=self.pad3,
+            return_indices=True,
+            ceil_mode=True)
 
     def forward(self, x):
         x = self.block1(x)
@@ -78,7 +86,7 @@ class LeNetUpSample(nn.Module):
     """ Upsampled variant of LeNet
         This is a simpler variant which does not rely on complex
         reconstruction methods, instead it employs a naive
-        interpolation (nearest neighbor/bilinear) at the very end 
+        interpolation (nearest neighbor/bilinear) at the very end
         to recover the original size.
     """
 
@@ -86,14 +94,12 @@ class LeNetUpSample(nn.Module):
         super(LeNetUpSample, self).__init__()
 
         C, H, W = input_shape
-        
-        self.base = LeNet(input_shape)
-        
-        self.classifier = nn.Sequential(
 
+        self.base = LeNet(input_shape)
+
+        self.classifier = nn.Sequential(
             nn.Conv2d(120, 1, kernel_size=1, padding=0),
-            nn.Upsample((H, W), mode=upsampling)
-        )
+            nn.Upsample((H, W), mode=upsampling))
 
     def forward(self, x):
         # Extracting the features
@@ -112,7 +118,7 @@ class LeNetUpSample(nn.Module):
 
 class LeNetDeconv(nn.Module):
     """ Upsampled variant of LeNet
-        This variant is based on DeconvNet [Noh], using 
+        This variant is based on DeconvNet [Noh], using
         transposed convolutions (aka deconvolutions) to
         rebuild the feature map. However, here there is no
         unpooling to recover the map size and the transp.
@@ -124,36 +130,30 @@ class LeNetDeconv(nn.Module):
         super(LeNetDeconv, self).__init__()
 
         C, H, W = input_shape
-        
-        self.base = LeNet(input_shape)
-        
-        self.block1 = nn.Sequential(
 
+        self.base = LeNet(input_shape)
+
+        self.block1 = nn.Sequential(
             nn.ConvTranspose2d(120, 16, kernel_size=3, stride=2),
             nn.BatchNorm2d(16),
             nn.ReLU(inplace=True),
         )
-        
-        self.block2 = nn.Sequential(
 
+        self.block2 = nn.Sequential(
             nn.ConvTranspose2d(16, 6, kernel_size=5, stride=2),
             nn.BatchNorm2d(6),
             nn.ReLU(inplace=True),
         )
 
         self.block3 = nn.Sequential(
-
             nn.Conv2d(6, 6, kernel_size=3, padding=1),
             nn.BatchNorm2d(6),
             nn.ReLU(inplace=True),
         )
- 
+
         self.classifier = nn.Sequential(
-
             nn.Conv2d(6, 1, kernel_size=1, padding=0),
-            nn.Upsample((H, W), mode=upsampling)
-        )
-
+            nn.Upsample((H, W), mode=upsampling))
 
     def forward(self, x):
         # Extracting the features
@@ -177,7 +177,7 @@ class LeNetDeconv(nn.Module):
 
 class LeNetDecoder(nn.Module):
     """ Upsampled variant of LeNet
-        This variant is based on SegNet [Badrinarayanan] and 
+        This variant is based on SegNet [Badrinarayanan] and
         reconstructs the image through successive unpoolings
         to enlarge the feature map size and 2D convolutions
         to populate them.
@@ -191,39 +191,33 @@ class LeNetDecoder(nn.Module):
         self.base = LeNet(input_shape)
 
         self.block1 = nn.Sequential(
-
             nn.Conv2d(120, 16, kernel_size=3, padding=1),
             nn.BatchNorm2d(16),
             nn.ReLU(inplace=True),
         )
-        
-        self.block2 = nn.Sequential(
 
+        self.block2 = nn.Sequential(
             nn.Conv2d(16, 6, kernel_size=5, padding=2),
             nn.BatchNorm2d(6),
             nn.ReLU(inplace=True),
         )
 
         self.block3 = nn.Sequential(
-
             nn.Conv2d(6, 6, kernel_size=5, padding=2),
             nn.BatchNorm2d(6),
             nn.ReLU(inplace=True),
         )
 
- 
         self.classifier = nn.Sequential(
-
             nn.Conv2d(6, 1, kernel_size=1, padding=0),
-            nn.Upsample((H, W), mode=upsampling)
-        )
-      
-        self.unpool1 = nn.MaxUnpool2d(kernel_size=(3,3), stride=(2,2),
-                                      padding=self.base.pad3)
-        self.unpool2 = nn.MaxUnpool2d(kernel_size=(3,3), stride=(2,2),
-                                      padding=self.base.pad2)
-        self.unpool3 = nn.MaxUnpool2d(kernel_size=(3,3), stride=(2,2),
-                                      padding=self.base.pad1)
+            nn.Upsample((H, W), mode=upsampling))
+
+        self.unpool1 = nn.MaxUnpool2d(
+            kernel_size=(3, 3), stride=(2, 2), padding=self.base.pad3)
+        self.unpool2 = nn.MaxUnpool2d(
+            kernel_size=(3, 3), stride=(2, 2), padding=self.base.pad2)
+        self.unpool3 = nn.MaxUnpool2d(
+            kernel_size=(3, 3), stride=(2, 2), padding=self.base.pad1)
 
         self._weights_init()
 
@@ -255,7 +249,7 @@ class LeNetDecoder(nn.Module):
 def lenetupsample(pretrained=False, **kwargs):
     if pretrained:
         warnings.warn('No pretrained model available. ' +
-                      'Falling back to pretrained=True')
+                      'Falling back to pretrained=False')
     input_shape = kwargs.pop('input_shape', None)
     if not input_shape:
         raise ValueError('input_shape is required')
@@ -264,7 +258,8 @@ def lenetupsample(pretrained=False, **kwargs):
     if upsampling is None:
         upsampling = 'bilinear'
     elif upsampling not in upsampling_modes:
-        raise ValueError('Invalid upsampling mode. Options are {}'.format(upsampling_modes))
+        raise ValueError(
+            'Invalid upsampling mode. Options are {}'.format(upsampling_modes))
 
     return LeNetUpSample(input_shape, upsampling)
 
@@ -272,7 +267,7 @@ def lenetupsample(pretrained=False, **kwargs):
 def lenetdeconv(pretrained=False, **kwargs):
     if pretrained:
         warnings.warn('No pretrained model available. ' +
-                      'Falling back to pretrained=True')
+                      'Falling back to pretrained=False')
     input_shape = kwargs.pop('input_shape', None)
     if not input_shape:
         raise ValueError('input_shape is required')
@@ -281,7 +276,8 @@ def lenetdeconv(pretrained=False, **kwargs):
     if upsampling is None:
         upsampling = 'bilinear'
     elif upsampling not in upsampling_modes:
-        raise ValueError('Invalid upsampling mode. Options are {}'.format(upsampling_modes))
+        raise ValueError(
+            'Invalid upsampling mode. Options are {}'.format(upsampling_modes))
 
     return LeNetDeconv(input_shape, upsampling)
 
@@ -289,7 +285,7 @@ def lenetdeconv(pretrained=False, **kwargs):
 def lenetdecoder(pretrained=False, **kwargs):
     if pretrained:
         warnings.warn('No pretrained model available. ' +
-                      'Falling back to pretrained=True')
+                      'Falling back to pretrained=False')
     input_shape = kwargs.pop('input_shape', None)
     if not input_shape:
         raise ValueError('input_shape is required')
@@ -298,7 +294,8 @@ def lenetdecoder(pretrained=False, **kwargs):
     if upsampling is None:
         upsampling = 'bilinear'
     elif upsampling not in upsampling_modes:
-        raise ValueError('Invalid upsampling mode. Options are {}'.format(upsampling_modes))
+        raise ValueError(
+            'Invalid upsampling mode. Options are {}'.format(upsampling_modes))
 
     return LeNetDecoder(input_shape, upsampling)
 
@@ -306,7 +303,7 @@ def lenetdecoder(pretrained=False, **kwargs):
 def lenetdilate(pretrained=False, **kwargs):
     if pretrained:
         warnings.warn('No pretrained model available. ' +
-                      'Falling back to pretrained=True')
+                      'Falling back to pretrained=False')
     input_shape = kwargs.pop('input_shape', None)
     if not input_shape:
         raise ValueError('input_shape is required')
@@ -315,8 +312,8 @@ def lenetdilate(pretrained=False, **kwargs):
     if upsampling is None:
         upsampling = 'bilinear'
     elif upsampling not in upsampling_modes:
-        raise ValueError('Invalid upsampling mode. Options are {}'.format(upsampling_modes))
+        raise ValueError(
+            'Invalid upsampling mode. Options are {}'.format(upsampling_modes))
 
     raise NotImplementedError
     # return LeNetDilate(input_shape, upsampling)
-

@@ -12,7 +12,7 @@ __all__ = [
     'LeNetUpSample', 'lenetupsample'
 ]
 
-upsampling_modes = ['nearest', 'bilinear']
+UPSAMPLING_MODES = ['nearest', 'bilinear']
 
 
 class LeNet(nn.Module):
@@ -257,9 +257,9 @@ def lenetupsample(pretrained=False, **kwargs):
     upsampling = kwargs.pop('upsampling', None)
     if upsampling is None:
         upsampling = 'bilinear'
-    elif upsampling not in upsampling_modes:
+    elif upsampling not in UPSAMPLING_MODES:
         raise ValueError(
-            'Invalid upsampling mode. Options are {}'.format(upsampling_modes))
+            'Invalid upsampling mode. Options are {}'.format(UPSAMPLING_MODES))
 
     return LeNetUpSample(input_shape, upsampling)
 
@@ -275,9 +275,9 @@ def lenetdeconv(pretrained=False, **kwargs):
     upsampling = kwargs.pop('upsampling', None)
     if upsampling is None:
         upsampling = 'bilinear'
-    elif upsampling not in upsampling_modes:
+    elif upsampling not in UPSAMPLING_MODES:
         raise ValueError(
-            'Invalid upsampling mode. Options are {}'.format(upsampling_modes))
+            'Invalid upsampling mode. Options are {}'.format(UPSAMPLING_MODES))
 
     return LeNetDeconv(input_shape, upsampling)
 
@@ -293,9 +293,9 @@ def lenetdecoder(pretrained=False, **kwargs):
     upsampling = kwargs.pop('upsampling', None)
     if upsampling is None:
         upsampling = 'bilinear'
-    elif upsampling not in upsampling_modes:
+    elif upsampling not in UPSAMPLING_MODES:
         raise ValueError(
-            'Invalid upsampling mode. Options are {}'.format(upsampling_modes))
+            'Invalid upsampling mode. Options are {}'.format(UPSAMPLING_MODES))
 
     return LeNetDecoder(input_shape, upsampling)
 
@@ -311,9 +311,9 @@ def lenetdilate(pretrained=False, **kwargs):
     upsampling = kwargs.pop('upsampling', None)
     if upsampling is None:
         upsampling = 'bilinear'
-    elif upsampling not in upsampling_modes:
+    elif upsampling not in UPSAMPLING_MODES:
         raise ValueError(
-            'Invalid upsampling mode. Options are {}'.format(upsampling_modes))
+            'Invalid upsampling mode. Options are {}'.format(UPSAMPLING_MODES))
 
     raise NotImplementedError
     # return LeNetDilate(input_shape, upsampling)

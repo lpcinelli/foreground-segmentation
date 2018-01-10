@@ -32,42 +32,33 @@ class History(AverageMeter):
         self.vals.append(val * n)
 
 
-def compute_pad_size(input_size, kernel_size, stride=1, dilation=1):
-    """ Computes the necessary amount of padding to each side border
-        of the output so that an integer number of kernels fit in
-        the input
-        Inputs:
-                input_size: tuple with height h and width w of the input tensor
-                kernel_size: tuple with  kernel dimensions
-                stride: tuple with kernel's stride along each dim
-        Returns:
-                (vertical pad, horizontal pad)
-    """
-    return (int((stride[0] -
-                 (input_size[0] - kernel_size[0]) % stride[0]) / 2.0 + 0.5),
-            int((stride[1] -
-                 (input_size[1] - kernel_size[1]) % stride[1]) / 2.0 + 0.5))
-
-
-def compute_output_size(input_size,
-                        kernel_size,
-                        stride=1,
-                        padding=0,
-                        dilation=1):
+def conv2_out_size(input_size, kernel_size, stride=1, padding=0, dilation=1):
     """ Computes height and width size of the output tensor
         Inputs:
                 input_size: tuple with height h and width w of the input tensor
                 kernel_size: tuple with  kernel dimensions
-                stride: tuple with kernel's stride along each dim
-                padding: tuple with the (half the)  amount of padding on each dim
+                stride: int or tuple with kernel's stride along each dim
+                padding: int or tuple with the (half the)  amount of padding
+                         on each dim
+                dilation: int or tuple with that controls the spacing between
+                          kernel points
         Returns:
                 (output height, output width)
 
     """
-    return (np.floor((input_size[0] + 2 * padding[0] - dilation[0] *
-                      (kernel_size[0] - 1) - 1) / stride[0] + 1),
-            np.floor((input_size[1] + 2 * padding[1] - dilation[1] *
-                      (kernel_size[1] - 1) - 1) / stride[1] + 1))
+    if isinstance(stride, (int, float)):
+        kernel_size = (int(kernel_size), int(kernel_size))
+
+    if isinstance(stride, (int, float)):
+        stride = (int(stride), int(stride))
+
+    if isinstance(dilation, (int, float)):
+        dilation = (int(dilation), int(dilation))
+
+    return (int((input_size[0] + 2 * padding[0] - dilation[0] *
+                 (kernel_size[0] - 1) - 1) / stride[0] + 1),
+            int((input_size[1] + 2 * padding[1] - dilation[1] *
+                 (kernel_size[1] - 1) - 1) / stride[1] + 1))
 
 
 def find_threshold(y_pred, y_true, metric, min_val=0, max_val=1.0, eps=1e-6):

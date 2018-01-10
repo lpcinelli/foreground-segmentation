@@ -3,8 +3,6 @@ import warnings
 from torch import nn
 from torch.nn import init
 
-from ..utils.generic_utils import compute_output_size, compute_pad_size
-
 __all__ = [
     'LeNetDecoder', 'lenetdecoder', 'LeNetDeconv', 'lenetdeconv',
     'LeNetUpSample', 'lenetupsample'
@@ -16,12 +14,19 @@ UPSAMPLING_MODES = ['nearest', 'bilinear']
 class LeNet(nn.Module):
     """ Base Lenet(ish) network that compresses information
         and on which all variants are built upon.
+
+        Args:
+            input_shape: tuple containing (C,H,W)
+            return_indices: whether return the pooling indices or not
+            return_sizes: whether return the input size after each block or not
     """
 
-    def __init__(self, input_shape):
+    def __init__(self, input_shape, return_indices=False, return_sizes=False):
         super(LeNet, self).__init__()
 
-        _, H, W = input_shape
+        C, _, _ = input_shape
+        self.return_indices = return_indices
+        self.return_sizes = return_sizes
 
         self.block1 = nn.Sequential(
             nn.Conv2d(C, 6, kernel_size=5, padding=2),
@@ -41,43 +46,46 @@ class LeNet(nn.Module):
             nn.ReLU(inplace=True),
         )
 
-        self.pad1 = compute_pad_size((H, W), (3, 3), (2, 2))
         self.pool1 = nn.MaxPool2d(
             kernel_size=(3, 3),
             stride=(2, 2),
-            padding=self.pad1,
             return_indices=True,
             ceil_mode=True)
 
-        out1 = compute_output_size((H, W), (3, 3), (2, 2), self.pad1)
-        self.pad2 = compute_pad_size(out1, (3, 3), (2, 2))
         self.pool2 = nn.MaxPool2d(
             kernel_size=(3, 3),
             stride=(2, 2),
-            padding=self.pad2,
             return_indices=True,
             ceil_mode=True)
 
-        out2 = compute_output_size(out1, (3, 3), (2, 2), self.pad2)
-        self.pad3 = compute_pad_size(out2, (3, 3), (2, 2))
         self.pool3 = nn.MaxPool2d(
             kernel_size=(3, 3),
             stride=(2, 2),
-            padding=self.pad3,
             return_indices=True,
             ceil_mode=True)
 
     def forward(self, x):
         x = self.block1(x)
+        size1 = x.size()
         x, pool1_idx = self.pool1(x)
 
         x = self.block2(x)
+        size2 = x.size()
         x, pool2_idx = self.pool2(x)
 
         x = self.block3(x)
+        size3 = x.size()
         x, pool3_idx = self.pool3(x)
 
-        return x, (pool1_idx, pool2_idx, pool3_idx)
+        out = [x]
+
+        if self.return_indices == True:
+            out += [(pool1_idx, pool2_idx, pool3_idx)]
+
+        if self.return_sizes == True:
+            out += [(size1, size2, size3)]
+
+        return out
 
 
 class LeNetUpSample(nn.Module):
@@ -101,7 +109,7 @@ class LeNetUpSample(nn.Module):
 
     def forward(self, x):
         # Extracting the features
-        x, _ = self.base(x)
+        x = self.base(x)
 
         # Projecting to probability map
         x = self.classifier(x)
@@ -155,7 +163,7 @@ class LeNetDeconv(nn.Module):
 
     def forward(self, x):
         # Extracting the features
-        x, _ = self.base(x)
+        x = self.base(x)
 
         # Reconstructing feature map
         x = self.block1(x)
@@ -186,7 +194,7 @@ class LeNetDecoder(nn.Module):
 
         _, H, W = input_shape
 
-        self.base = LeNet(input_shape)
+        self.base = LeNet(input_shape, return_indices=True, return_sizes=True)
 
         self.block1 = nn.Sequential(
             nn.Conv2d(120, 16, kernel_size=3, padding=1),
@@ -210,27 +218,24 @@ class LeNetDecoder(nn.Module):
             nn.Conv2d(6, 1, kernel_size=1, padding=0),
             nn.Upsample((H, W), mode=upsampling))
 
-        self.unpool1 = nn.MaxUnpool2d(
-            kernel_size=(3, 3), stride=(2, 2), padding=self.base.pad3)
-        self.unpool2 = nn.MaxUnpool2d(
-            kernel_size=(3, 3), stride=(2, 2), padding=self.base.pad2)
-        self.unpool3 = nn.MaxUnpool2d(
-            kernel_size=(3, 3), stride=(2, 2), padding=self.base.pad1)
+        self.unpool1 = nn.MaxUnpool2d(kernel_size=(3, 3), stride=(2, 2))
+        self.unpool2 = nn.MaxUnpool2d(kernel_size=(3, 3), stride=(2, 2))
+        self.unpool3 = nn.MaxUnpool2d(kernel_size=(3, 3), stride=(2, 2))
 
         self._weights_init()
 
     def forward(self, x):
         # Extracting the features
-        x, pool_idx = self.base(x)
+        x, pool_idx, sizes = self.base(x)
 
         # Reconstructing feature map
-        x = self.unpool1(x, pool_idx[-1])
+        x = self.unpool1(x, pool_idx[-1], output_size=sizes[-1])
         x = self.block1(x)
 
-        x = self.unpool2(x, pool_idx[-2])
+        x = self.unpool2(x, pool_idx[-2], output_size=sizes[-2])
         x = self.block2(x)
 
-        x = self.unpool3(x, pool_idx[-3])
+        x = self.unpool3(x, pool_idx[-3], output_size=sizes[-3])
         x = self.block3(x)
 
         # Projecting to probability map

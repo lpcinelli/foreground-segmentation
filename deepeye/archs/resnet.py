@@ -108,7 +108,6 @@ class ResNet(nn.Module):
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
-        self.fc = nn.Linear(512 * block.expansion, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -146,9 +145,35 @@ class ResNet(nn.Module):
         x = self.layer3(x)
         x = self.layer4(x)
 
-        x = F.avg_pool2d(x, kernel_size=x.size()[2:])
-        x = x.view(x.size(0), -1)
-        x = self.fc(x)
+        return x
+
+
+class ResNetUpSample(nn.Module):
+    """ Upsampled variant of ResNet
+        This is a simpler variant which does not rely on complex
+        reconstruction methods, instead it employs a naive
+        interpolation (nearest neighbor/bilinear) at the very end
+        to recover the original size.
+    """
+
+    def __init__(self, input_shape, block, layers, num_classes=1, upsampling='bilinear'):
+        super(ResNetUpSample, self).__init__()
+
+        _, H, W = input_shape
+
+        self.base = ResNet(input_shape, block, layers, num_classes=1)
+        last_layer = [obj for obj in self.base.modules() if isinstance(obj, nn.Conv2d)][-1]
+
+        self.classifier = nn.Sequential(
+            nn.Conv2d(last_layer.out_channels, 1, kernel_size=1, padding=0),
+            nn.Upsample((H, W), mode=upsampling))
+
+    def forward(self, x):
+        # Extracting the features
+        x = self.base(x)
+
+        # Projecting to probability map
+        x = self.classifier(x)
 
         return x
 

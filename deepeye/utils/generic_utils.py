@@ -31,8 +31,8 @@ class History(AverageMeter):
         super().update(val, n)
         self.vals.append(val * n)
 
-
-def conv2_out_size(input_size, kernel_size, stride=1, padding=0, dilation=1):
+def conv2_out_size(input_size, kernel_size, stride=1, padding=0, dilation=1,
+                    ceil_mode=False):
     """ Computes height and width size of the output tensor
         Inputs:
                 input_size: tuple with height h and width w of the input tensor
@@ -46,19 +46,24 @@ def conv2_out_size(input_size, kernel_size, stride=1, padding=0, dilation=1):
                 (output height, output width)
 
     """
-    if isinstance(stride, (int, float)):
+    if isinstance(kernel_size, (int, float)):
         kernel_size = (int(kernel_size), int(kernel_size))
 
     if isinstance(stride, (int, float)):
         stride = (int(stride), int(stride))
 
+    if isinstance(padding, (int, float)):
+        padding = (int(padding), int(padding))
+
     if isinstance(dilation, (int, float)):
         dilation = (int(dilation), int(dilation))
 
     return (int((input_size[0] + 2 * padding[0] - dilation[0] *
-                 (kernel_size[0] - 1) - 1) / stride[0] + 1),
+                 (kernel_size[0] - 1) - 1) / stride[0] + 1 +
+                 int(ceil_mode) * 0.5),
             int((input_size[1] + 2 * padding[1] - dilation[1] *
-                 (kernel_size[1] - 1) - 1) / stride[1] + 1))
+                 (kernel_size[1] - 1) - 1) / stride[1] + 1 +
+                 int(ceil_mode) * 0.5))
 
 
 def find_threshold(y_pred, y_true, metric, min_val=0, max_val=1.0, eps=1e-6):

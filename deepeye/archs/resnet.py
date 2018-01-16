@@ -282,7 +282,8 @@ class ResNetUpSample(nn.Module):
         last_layer = [obj for obj in self.base.modules() if isinstance(obj, nn.Conv2d)][-1]
 
         self.classifier = nn.Sequential(
-            nn.Conv2d(last_layer.out_channels, 1, kernel_size=1, padding=0))
+            nn.Conv2d(last_layer.out_channels, num_classes, kernel_size=1,
+                      padding=0))
 
     def forward(self, x):
         orig_size = x.size()
@@ -308,30 +309,35 @@ class ResNetDeconv(nn.Module):
         This deconvolutional decoder (practically) doubles
         model size
 
-        blocks can either be ['BasicBlockUp', 'BottleneckUp']
+        blockup can either be ['BasicBlockUp', 'BottleneckUp']
     """
 
     def __init__(self, input_shape, block, layers, num_classes=1, dilation=1,
-                 upsampling='bilinear'):
+                 upsampling='bilinear', blockup=None):
         super(ResNetDeconv, self).__init__()
+
+        if blockup is None:
+            blockup = BasicBlockUp if block.__name__ == 'BasicBlock' \
+                                   else BottleneckUp
+        elif (blockup is not BasicBlockUp) and (blockup is not BottleneckUp):
+            raise ValueError('Invalid upsampling block {}'.format())
 
         _, H, W = input_shape
         self.upsampling = upsampling
         self.base = ResNet(input_shape, block, layers, num_classes=1,
                            dilation=dilation, return_indices=True,
                            return_sizes=True)
-        last_layer = [obj for obj in self.base.modules() if isinstance(obj, nn.Conv2d)][-1]
+        last_layer = [obj for obj in self.base.modules()
+                        if isinstance(obj, nn.Conv2d)][-1]
         self.inplanes = last_layer.out_channels
 
-        block = BasicBlockUp if block.__name__ == 'BasicBlock' else BottleneckUp
-
-        self.layer1 = self._make_up_layer(block, layers[3], stride=2).apply(
+        self.layer1 = self._make_up_layer(blockup, layers[3], stride=2).apply(
                       partial(self._nostride_dilate, dilate=dilation))
-        self.layer2 = self._make_up_layer(block, layers[2], stride=2).apply(
+        self.layer2 = self._make_up_layer(blockup, layers[2], stride=2).apply(
                       partial(self._nostride_dilate, dilate=dilation/2))
-        self.layer3 = self._make_up_layer(block, layers[1], stride=2).apply(
+        self.layer3 = self._make_up_layer(blockup, layers[1], stride=2).apply(
                       partial(self._nostride_dilate, dilate=dilation/4))
-        self.layer4 = self._make_up_layer(block, layers[0], outplanes=64)
+        self.layer4 = self._make_up_layer(blockup, layers[0], outplanes=64)
 
         self.unpool = nn.MaxUnpool2d(kernel_size=(3, 3), stride=(2, 2),
                                      padding=1)
@@ -339,7 +345,7 @@ class ResNetDeconv(nn.Module):
                                          stride=2, padding=3, bias=False)
         self.bn = nn.BatchNorm2d(2)
         self.relu = nn.ReLU(inplace=True)
-        self.classifier = nn.Conv2d(2, 1, kernel_size=1, padding=0)
+        self.classifier = nn.Conv2d(2, num_classes, kernel_size=1, padding=0)
 
     def _make_up_layer(self, block, blocks, outplanes=None, stride=1):
         upsample = None

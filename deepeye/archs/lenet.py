@@ -1,5 +1,6 @@
 import warnings
 
+import torch.nn.functional as F
 from torch import nn
 from torch.nn import init
 
@@ -100,19 +101,21 @@ class LeNetUpSample(nn.Module):
         super(LeNetUpSample, self).__init__()
 
         _, H, W = input_shape
-
+        self.upsampling = upsampling
         self.base = LeNet(input_shape)
 
         self.classifier = nn.Sequential(
-            nn.Conv2d(120, 1, kernel_size=1, padding=0),
-            nn.Upsample((H, W), mode=upsampling))
+            nn.Conv2d(120, 1, kernel_size=1, padding=0))
 
     def forward(self, x):
+        orig_size = x.size()[-2:]
+
         # Extracting the features
-        x = self.base(x)
+        x = self.base(x)[0]
 
         # Projecting to probability map
         x = self.classifier(x)
+        x = F.upsample(x, size=orig_size, mode=self.upsampling)
 
         return x
 
@@ -136,7 +139,7 @@ class LeNetDeconv(nn.Module):
         super(LeNetDeconv, self).__init__()
 
         _, H, W = input_shape
-
+        self.upsampling = upsampling
         self.base = LeNet(input_shape)
 
         self.block1 = nn.Sequential(
@@ -158,12 +161,13 @@ class LeNetDeconv(nn.Module):
         )
 
         self.classifier = nn.Sequential(
-            nn.Conv2d(6, 1, kernel_size=1, padding=0),
-            nn.Upsample((H, W), mode=upsampling))
+            nn.Conv2d(6, 1, kernel_size=1, padding=0))
 
     def forward(self, x):
+        orig_size = x.size()[-2:]
+
         # Extracting the features
-        x = self.base(x)
+        x = self.base(x)[0]
 
         # Reconstructing feature map
         x = self.block1(x)
@@ -172,6 +176,7 @@ class LeNetDeconv(nn.Module):
 
         # Projecting to probability map
         x = self.classifier(x)
+        x = F.upsample(x, size=orig_size, mode=self.upsampling)
 
         return x
 
@@ -193,7 +198,7 @@ class LeNetDecoder(nn.Module):
         super(LeNetDecoder, self).__init__()
 
         _, H, W = input_shape
-
+        self.upsampling = upsampling
         self.base = LeNet(input_shape, return_indices=True, return_sizes=True)
 
         self.block1 = nn.Sequential(
@@ -215,8 +220,7 @@ class LeNetDecoder(nn.Module):
         )
 
         self.classifier = nn.Sequential(
-            nn.Conv2d(6, 1, kernel_size=1, padding=0),
-            nn.Upsample((H, W), mode=upsampling))
+            nn.Conv2d(6, 1, kernel_size=1, padding=0))
 
         self.unpool1 = nn.MaxUnpool2d(kernel_size=(3, 3), stride=(2, 2))
         self.unpool2 = nn.MaxUnpool2d(kernel_size=(3, 3), stride=(2, 2))
@@ -225,6 +229,8 @@ class LeNetDecoder(nn.Module):
         self._weights_init()
 
     def forward(self, x):
+        orig_size = x.size()[-2:]
+
         # Extracting the features
         x, pool_idx, sizes = self.base(x)
 
@@ -240,6 +246,7 @@ class LeNetDecoder(nn.Module):
 
         # Projecting to probability map
         x = self.classifier(x)
+        x = F.upsample(x, size=orig_size, mode=self.upsampling)
 
         return x
 

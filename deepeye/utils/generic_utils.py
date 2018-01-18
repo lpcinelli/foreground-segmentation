@@ -31,8 +31,13 @@ class History(AverageMeter):
         super().update(val, n)
         self.vals.append(val * n)
 
-def conv2_out_size(input_size, kernel_size, stride=1, padding=0, dilation=1,
-                    ceil_mode=False):
+
+def conv2_out_size(input_size,
+                   kernel_size,
+                   stride=1,
+                   padding=0,
+                   dilation=1,
+                   ceil_mode=False):
     """ Computes height and width size of the output tensor
         Inputs:
                 input_size: tuple with height h and width w of the input tensor
@@ -58,12 +63,11 @@ def conv2_out_size(input_size, kernel_size, stride=1, padding=0, dilation=1,
     if isinstance(dilation, (int, float)):
         dilation = (int(dilation), int(dilation))
 
-    return (int((input_size[0] + 2 * padding[0] - dilation[0] *
-                 (kernel_size[0] - 1) - 1) / stride[0] + 1 +
-                 int(ceil_mode) * 0.5),
-            int((input_size[1] + 2 * padding[1] - dilation[1] *
-                 (kernel_size[1] - 1) - 1) / stride[1] + 1 +
-                 int(ceil_mode) * 0.5))
+    return (
+        int((input_size[0] + 2 * padding[0] - dilation[0] *
+             (kernel_size[0] - 1) - 1) / stride[0] + 1 + int(ceil_mode) * 0.5),
+        int((input_size[1] + 2 * padding[1] - dilation[1] *
+             (kernel_size[1] - 1) - 1) / stride[1] + 1 + int(ceil_mode) * 0.5))
 
 
 def find_threshold(y_pred, y_true, metric, min_val=0, max_val=1.0, eps=1e-6):
@@ -110,3 +114,14 @@ def find_threshold(y_pred, y_true, metric, min_val=0, max_val=1.0, eps=1e-6):
 
     # Return
     return thrs_cur, scr_low
+
+
+def rgb2gray(weights):
+    """ Converts weights pretrained on RGB to grayscale
+        Args:
+            weights (torch.Tensor): model's weights of size (?, 3, ?, ?)
+        Returns:
+            torch.Tensor of size (?, 1, ?, ?)
+    """
+    return (0.2989 * weights[:, 0, :, :] + 0.5870 * weights[:, 1, :, :] +
+            0.1140 * weights[:, 2, :, :]).unsqueeze(1)

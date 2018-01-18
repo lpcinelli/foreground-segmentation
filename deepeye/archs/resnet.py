@@ -1,14 +1,17 @@
-import torch.nn as nn
 import math
-import torch.utils.model_zoo as model_zoo
-import torch.nn.functional as F
-
 from functools import partial
 
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.utils.model_zoo as model_zoo
+from ..utils.generic_utils import rgb2gray
 
-__all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
-           'resnet152']
+__all__ = [
+    'ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152'
+]
 
+UPSAMPLING_MODES = ['UpSample', 'Deconv']
 
 model_urls = {
     'resnet18': 'https://download.pytorch.org/models/resnet18-5c106cde.pth',
@@ -410,6 +413,11 @@ class ResNetDeconv(nn.Module):
         return x
 
 
+MODELS = {
+    k: v
+    for k, v in globals().items() if k.startswith('ResNet') and len(k) > 6
+}
+
 def resnet18(pretrained=False, **kwargs):
     """Constructs a ResNet-18 model.
 
@@ -419,9 +427,18 @@ def resnet18(pretrained=False, **kwargs):
     input_shape = kwargs.pop('input_shape', None)
     if not input_shape:
         raise ValueError('input_shape is required')
-    model = ResNet(input_shape, BasicBlock, [2, 2, 2, 2], **kwargs)
-    if pretrained and input_shape[0] == 3:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet18']))
+
+    up_mode = kwargs.pop('up_mode', None)
+    if up_mode not in UPSAMPLING_MODES:
+        raise ValueError(
+            'Incorrect reconstruction option ({}). Available options are {}'\
+            .format(up_mode, ", ".join(x for x in UPSAMPLING_MODES)))
+
+    model = MODELS[''.join(['ResNet', up_mode])](input_shape, BasicBlock,
+                                                 [2, 2, 2, 2], **kwargs)
+
+    if pretrained:
+        _load_weights(model.base.load_state_dict, 'resnet18', input_shape[0])
     return model
 
 
@@ -434,9 +451,18 @@ def resnet34(pretrained=False, **kwargs):
     input_shape = kwargs.pop('input_shape', None)
     if not input_shape:
         raise ValueError('input_shape is required')
-    model = ResNet(input_shape, BasicBlock, [3, 4, 6, 3], **kwargs)
-    if pretrained and input_shape[0] == 3:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet34']))
+
+    up_mode = kwargs.pop('up_mode', None)
+    if up_mode not in UPSAMPLING_MODES:
+        raise ValueError(
+            'Incorrect reconstruction option ({}). Available options are {}'\
+            .format(up_mode, ", ".join(x for x in UPSAMPLING_MODES)))
+
+    model = MODELS[''.join(['ResNet', up_mode])](input_shape, BasicBlock,
+                                                 [3, 4, 6, 3], **kwargs)
+
+    if pretrained:
+        _load_weights(model.base.load_state_dict, 'resnet34', C)
     return model
 
 
@@ -449,9 +475,18 @@ def resnet50(pretrained=False, **kwargs):
     input_shape = kwargs.pop('input_shape', None)
     if not input_shape:
         raise ValueError('input_shape is required')
-    model = ResNet(input_shape, Bottleneck, [3, 4, 6, 3], **kwargs)
-    if pretrained and input_shape[0] == 3:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet50']))
+
+    up_mode = kwargs.pop('up_mode', None)
+    if up_mode not in UPSAMPLING_MODES:
+        raise ValueError(
+            'Incorrect reconstruction option ({}). Available options are {}'\
+            .format(up_mode, ", ".join(x for x in UPSAMPLING_MODES)))
+
+    model = MODELS[''.join(['ResNet', up_mode])](input_shape, Bottleneck,
+                                                 [3, 4, 6, 3], **kwargs)
+
+    if pretrained:
+        _load_weights(model.base.load_state_dict, 'resnet50', C)
     return model
 
 
@@ -464,9 +499,17 @@ def resnet101(pretrained=False, **kwargs):
     input_shape = kwargs.pop('input_shape', None)
     if not input_shape:
         raise ValueError('input_shape is required')
-    model = ResNet(input_shape, Bottleneck, [3, 4, 23, 3], **kwargs)
-    if pretrained and input_shape[0] == 3:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet101']))
+
+    up_mode = kwargs.pop('up_mode', None)
+    if up_mode not in UPSAMPLING_MODES:
+        raise ValueError(
+            'Incorrect reconstruction option ({}). Available options are {}'\
+            .format(up_mode, ", ".join(x for x in UPSAMPLING_MODES)))
+
+    model = MODELS[''.join(['ResNet', up_mode])](input_shape, Bottleneck,
+                                                 [3, 4, 23, 3], **kwargs)
+    if pretrained:
+        _load_weights(model.base.load_state_dict, 'resnet101', C)
     return model
 
 
@@ -479,7 +522,61 @@ def resnet152(pretrained=False, **kwargs):
     input_shape = kwargs.pop('input_shape', None)
     if not input_shape:
         raise ValueError('input_shape is required')
-    model = ResNet(input_shape, Bottleneck, [3, 8, 36, 3], **kwargs)
-    if pretrained and input_shape[0] == 3:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet152']))
+
+    up_mode = kwargs.pop('up_mode', None)
+    if up_mode not in UPSAMPLING_MODES:
+        raise ValueError(
+            'Incorrect reconstruction option ({}). Available options are {}'\
+            .format(up_mode, ", ".join(x for x in UPSAMPLING_MODES)))
+
+    model = MODELS[''.join(['ResNet', up_mode])](input_shape, Bottleneck,
+                                                 [3, 8, 36, 3], **kwargs)
+
+    if pretrained:
+        _load_weights(model.base.load_state_dict, 'resnet152', input_shape[0])
     return model
+
+
+def _load_weights(load_dict, base_resnet, C=0):
+    """ Loads weights pretrained on ImageNet.
+        Handles nb of channels other than 3 (RGB)
+        Args:
+            load_dict (func): model's load_state_dict() function handle
+            base_resnet (str): resnet name
+            C (int): number of input channels
+    """
+    ref = model_zoo.load_url(model_urls[base_resnet])
+    conv1 = ref.pop('conv1.weight')
+    if C == 0:
+        # Do not load pretrained weights for the first conv layer
+        pass
+    elif C == 1:
+        #  Input image is in grayscale
+        load_dict(
+            {
+                'conv1.weight': nn.Parameter(rgb2gray(conv1).data)
+            }, strict=False)
+    elif C == 2:
+        #  Input image is 2 different images in grayscale, one in each channel
+        load_dict(
+            {
+                'conv1.weight':
+                nn.Parameter(
+                    torch.cat(
+                        (rgb2gray(conv1), rgb2gray(conv1.clone())), 1).data)
+            },
+            strict=False)
+    elif C == 3:
+        load_dict({'conv1.weight': conv1}, strict=False)
+    elif C == 6:
+        #  Input image is 2 different images both in RGB space
+        load_dict(
+            {
+                'conv1.weight':
+                nn.Parameter(torch.cat((conv1, conv1.clone()), 1).data)
+            },
+            strict=False)
+    else:
+        raise ValueError('Invalid number of channels ({}) for input_shape'.\
+                         format(C))
+    load_dict(ref, strict=False)

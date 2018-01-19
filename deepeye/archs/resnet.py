@@ -24,14 +24,24 @@ model_urls = {
 
 def conv3x3(in_planes, out_planes, stride=1):
     "3x3 convolution with padding"
-    return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
-                     padding=1, bias=False)
+    return nn.Conv2d(
+        in_planes,
+        out_planes,
+        kernel_size=3,
+        stride=stride,
+        padding=1,
+        bias=False)
 
 
 class BasicBlock(nn.Module):
     expansion = 1
 
-    def __init__(self, inplanes, planes, stride=1, downsample=None):
+    def __init__(self,
+                 inplanes,
+                 planes,
+                 stride=1,
+                 downsample=None,
+                 residue=True):
         super(BasicBlock, self).__init__()
         self.conv1 = conv3x3(inplanes, planes, stride)
         self.bn1 = nn.BatchNorm2d(planes)
@@ -40,6 +50,7 @@ class BasicBlock(nn.Module):
         self.bn2 = nn.BatchNorm2d(planes)
         self.downsample = downsample
         self.stride = stride
+        self.residue = residue
 
     def forward(self, x):
         residual = x
@@ -54,26 +65,47 @@ class BasicBlock(nn.Module):
         if self.downsample is not None:
             residual = self.downsample(x)
 
-        out += residual
+        if self.residue == True:
+            out += residual
+
         out = self.relu(out)
 
         return out
 
 
 class BasicBlockUp(nn.Module):
-    expansion = 1
+    expansion = 1 / 2
 
-    def __init__(self, inplanes, planes, stride=1, upsample=None):
+    def __init__(self,
+                 inplanes,
+                 planes,
+                 outplanes,
+                 stride=1,
+                 upsample=None,
+                 residue=True,
+                 mirror=True):
         super(BasicBlockUp, self).__init__()
-        self.conv1 = nn.ConvTranspose2d(inplanes, inplanes, kernel_size=3,
-                                        stride=stride, padding=1, bias=False)
+
+        self.conv1 = nn.ConvTranspose2d(
+            inplanes,
+            inplanes,
+            kernel_size=3,
+            stride=1 if mirror is True else stride,
+            padding=1,
+            bias=False)
         self.bn1 = nn.BatchNorm2d(inplanes)
         self.relu = nn.ReLU(inplace=True)
-        self.conv2 = nn.ConvTranspose2d(inplanes, planes, kernel_size=3,
-                                        stride=1, padding=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(planes)
+        self.conv2 = nn.ConvTranspose2d(
+            inplanes,
+            outplanes,
+            kernel_size=3,
+            stride=stride if mirror is True else 1,
+            padding=1,
+            bias=False)
+        self.bn2 = nn.BatchNorm2d(outplanes)
         self.upsample = upsample
         self.stride = stride
+        self.residue = residue
 
     def forward(self, x):
         residual = x
@@ -88,7 +120,9 @@ class BasicBlockUp(nn.Module):
         if self.upsample is not None:
             residual = self.upsample(x)
 
-        out += residual
+        if self.residue == True:
+            out += residual
+
         out = self.relu(out)
 
         return out
@@ -97,20 +131,30 @@ class BasicBlockUp(nn.Module):
 class Bottleneck(nn.Module):
     expansion = 4
 
-    def __init__(self, inplanes, midplanes, stride=1, downsample=None):
+    def __init__(self,
+                 inplanes,
+                 midplanes,
+                 stride=1,
+                 downsample=None,
+                 residue=True):
         super(Bottleneck, self).__init__()
         outplanes = midplanes * self.expansion
         self.conv1 = nn.Conv2d(inplanes, midplanes, kernel_size=1, bias=False)
         self.bn1 = nn.BatchNorm2d(midplanes)
-        self.conv2 = nn.Conv2d(midplanes, midplanes, kernel_size=3,
-                               stride=stride, padding=1, bias=False)
+        self.conv2 = nn.Conv2d(
+            midplanes,
+            midplanes,
+            kernel_size=3,
+            stride=stride,
+            padding=1,
+            bias=False)
         self.bn2 = nn.BatchNorm2d(midplanes)
-        self.conv3 = nn.Conv2d(midplanes, outplanes, kernel_size=1,
-                               bias=False)
+        self.conv3 = nn.Conv2d(midplanes, outplanes, kernel_size=1, bias=False)
         self.bn3 = nn.BatchNorm2d(outplanes)
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
+        self.residue = residue
 
     def forward(self, x):
         residual = x
@@ -129,27 +173,41 @@ class Bottleneck(nn.Module):
         if self.downsample is not None:
             residual = self.downsample(x)
 
-        out += residual
+        if self.residue == True:
+            out += residual
+
         out = self.relu(out)
 
         return out
 
-class BottleneckUp(nn.Module):
-    expansion = 4
 
-    def __init__(self, inplanes, planes, stride=1, upsample=None):
+class BottleneckUp(nn.Module):
+    expansion = 2
+
+    def __init__(self,
+                 inplanes,
+                 midplanes,
+                 outplanes,
+                 stride=1,
+                 upsample=None,
+                 residue=True):
         super(BottleneckUp, self).__init__()
-        midplanes = inplanes//self.expansion
         self.conv1 = nn.Conv2d(inplanes, midplanes, kernel_size=1, bias=False)
         self.bn1 = nn.BatchNorm2d(midplanes)
-        self.conv2 = nn.ConvTranspose2d(midplanes, midplanes, kernel_size=3,
-                                        stride=stride, padding=1, bias=False)
+        self.conv2 = nn.ConvTranspose2d(
+            midplanes,
+            midplanes,
+            kernel_size=3,
+            stride=stride,
+            padding=1,
+            bias=False)
         self.bn2 = nn.BatchNorm2d(midplanes)
-        self.conv3 = nn.Conv2d(midplanes, planes, kernel_size=1, bias=False)
-        self.bn3 = nn.BatchNorm2d(planes)
+        self.conv3 = nn.Conv2d(midplanes, outplanes, kernel_size=1, bias=False)
+        self.bn3 = nn.BatchNorm2d(outplanes)
         self.relu = nn.ReLU(inplace=True)
         self.upsample = upsample
         self.stride = stride
+        self.residue = residue
 
     def forward(self, x):
         residual = x
@@ -168,37 +226,67 @@ class BottleneckUp(nn.Module):
         if self.upsample is not None:
             residual = self.upsample(x)
 
-        out += residual
+        if self.residue == True:
+            out += residual
+
         out = self.relu(out)
 
         return out
 
 
 class ResNet(nn.Module):
-
-    def __init__(self, input_shape, block, layers, num_classes=1, dilation=1,
-                 return_indices=False, return_sizes=False):
+    def __init__(self,
+                 input_shape,
+                 block,
+                 layers,
+                 num_classes=1,
+                 dilation=1,
+                 dilation_growth=2,
+                 return_indices=False,
+                 return_sizes=False,
+                 skip_connection=False):
         super(ResNet, self).__init__()
 
         C, W, H = input_shape
         self.inplanes = 64
         self.return_indices = return_indices
         self.return_sizes = return_sizes
+        self.skip_connection = skip_connection
+        self.nb_blocks = len(layers)
 
-        self.conv1 = nn.Conv2d(C, 64, kernel_size=7, stride=2, padding=3,
-                               bias=False)
+        self.conv1 = nn.Conv2d(
+            C, 64, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
         self.relu = nn.ReLU(inplace=True)
-        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1,
-                                    return_indices=True, ceil_mode=True)
-        self.layer1 = self._make_down_layer(block, 64, layers[0])
+        self.maxpool = nn.MaxPool2d(
+            kernel_size=3,
+            stride=2,
+            padding=1,
+            return_indices=True,
+            ceil_mode=True)
 
-        self.layer2 = self._make_down_layer(block, 128, layers[1], stride=2).apply(
-                      partial(self._nostride_dilate, dilate=dilation/4))
-        self.layer3 = self._make_down_layer(block, 256, layers[2], stride=2).apply(
-                      partial(self._nostride_dilate, dilate=dilation/2))
-        self.layer4 = self._make_down_layer(block, 512, layers[3], stride=2).apply(
-                      partial(self._nostride_dilate, dilate=dilation))
+        for i, layer in enumerate(layers):
+
+            if isinstance(layer, int):
+                blocks = layer
+                channels = 2**(6 + i)
+                stride = 2 if i > 0 else 1
+                dilate = dilation / dilation_growth**(self.nb_blocks - (i + 1))
+            elif isinstance(layer, tuple) and isinstance(layer[1], dict):
+                blocks = layer[0]
+                channels = layer[1].get('depth', 2**(6 + i))
+                stride = layer[1].get('stride', 2 if i > 0 else 1)
+                block = layer[1].get('block', block)
+                dilate = layer[1].get('dilation', dilation / dilation_growth**
+                                      (self.nb_blocks - (i + 1)))
+            else:
+                raise ValueError('Elements of {} should either be int '.format(
+                    layers) + 'or tuple of (int, dict)')
+
+            self.__dict__['_modules']['layer{}'.format(
+                i + 1)] = self._make_down_layer(
+                    block, channels, blocks, stride=stride).apply(
+                        partial(self._nostride_dilate, dilate=dilate))
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -212,8 +300,12 @@ class ResNet(nn.Module):
         downsample = None
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
-                nn.Conv2d(self.inplanes, planes * block.expansion,
-                          kernel_size=1, stride=stride, bias=False),
+                nn.Conv2d(
+                    self.inplanes,
+                    planes * block.expansion,
+                    kernel_size=1,
+                    stride=stride,
+                    bias=False),
                 nn.BatchNorm2d(planes * block.expansion),
             )
 
@@ -231,7 +323,7 @@ class ResNet(nn.Module):
             # the convolution with stride
             if m.stride == (2, 2):
                 m.stride = (1, 1)
-                min_dilate = int(max(1, dilate//2))
+                min_dilate = int(max(1, dilate // 2))
                 if m.kernel_size == (3, 3):
                     m.dilation = (min_dilate, min_dilate)
                     m.padding = (min_dilate, min_dilate)
@@ -251,12 +343,18 @@ class ResNet(nn.Module):
         x, pool_idx = self.maxpool(x)
 
         size2 = x.size()
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
 
-        out = [x]
+        if self.skip_connection == True:
+            intermediate_maps = [x]
+            for i in range(self.nb_blocks):
+                intermediate_maps.append(
+                    self.__dict__['_modules']['layer{}'.format(i + 1)](
+                        intermediate_maps[i]))
+            out = [intermediate_maps]
+        else:
+            for i in range(self.nb_blocks):
+                x = self.__dict__['_modules']['layer{}'.format(i + 1)](x)
+            out = [[x]]
 
         if self.return_indices == True:
             out += [pool_idx]
@@ -275,30 +373,33 @@ class ResNetUpSample(nn.Module):
         to recover the original size.
     """
 
-    def __init__(self, input_shape, block, layers, num_classes=1, dilation=1,
-                 upsampling='bilinear'):
+    def __init__(self, input_shape, block, layers, num_classes=1, dilation=1):
         super(ResNetUpSample, self).__init__()
 
         _, H, W = input_shape
-        self.base = ResNet(input_shape, block, layers, num_classes=1,
-                           dilatation=dilation)
-        last_layer = [obj for obj in self.base.modules() if isinstance(obj, nn.Conv2d)][-1]
+        self.base = ResNet(
+            input_shape, block, layers, num_classes=1, dilation=dilation)
+        last_layer = [
+            obj for obj in self.base.modules() if isinstance(obj, nn.Conv2d)
+        ][-1]
 
         self.classifier = nn.Sequential(
-            nn.Conv2d(last_layer.out_channels, num_classes, kernel_size=1,
-                      padding=0))
+            nn.Conv2d(
+                last_layer.out_channels, num_classes, kernel_size=1,
+                padding=0))
 
     def forward(self, x):
         orig_size = x.size()
 
         # Extracting the features
-        x = self.base(x)[0]
+        x = self.base(x)[0][0]
 
-        # Projecting to belif map
+        # Projecting to belief map
         x = self.classifier(x)
-        x = F.upsample(x, size=orig_size, mode=self.upsampling)
+        x = F.upsample(x, size=orig_size[-2:], mode='bilinear')
 
         return x
+
 
 class ResNetDeconv(nn.Module):
     """ Upsampled variant of ResNet.
@@ -312,61 +413,122 @@ class ResNetDeconv(nn.Module):
         This deconvolutional decoder (practically) doubles
         model size
 
-        blockup can either be ['BasicBlockUp', 'BottleneckUp']
+        block_up can either be ['BasicBlockUp', 'BottleneckUp']
     """
 
-    def __init__(self, input_shape, block, layers, num_classes=1, dilation=1,
-                 upsampling='bilinear', blockup=None):
+    def __init__(self,
+                 input_shape,
+                 block,
+                 layers,
+                 num_classes=1,
+                 dilation=1,
+                 dilation_growth=2,
+                 block_up=None,
+                 layers_up=None,
+                 skip_connection=False):
         super(ResNetDeconv, self).__init__()
 
-        if blockup is None:
-            blockup = BasicBlockUp if block.__name__ == 'BasicBlock' \
+        _, H, W = input_shape
+        # block_up = kwargs.pop('block_up', None)
+        # layers_up = kwargs.pop('layers_up', layers[::-1])
+        self.skip_connection = skip_connection
+
+        if block_up is None:
+            block_up = BasicBlockUp if block.__name__ == 'BasicBlock' \
                                    else BottleneckUp
-        elif (blockup is not BasicBlockUp) and (blockup is not BottleneckUp):
+        elif (block_up is not BasicBlockUp) and (block_up is not BottleneckUp):
             raise ValueError('Invalid upsampling block {}'.format())
 
-        _, H, W = input_shape
-        self.upsampling = upsampling
-        self.base = ResNet(input_shape, block, layers, num_classes=1,
-                           dilation=dilation, return_indices=True,
-                           return_sizes=True)
-        last_layer = [obj for obj in self.base.modules()
-                        if isinstance(obj, nn.Conv2d)][-1]
+        if layers_up is None:
+            layers_up = layers[::-1]
+        self.nb_blocks = len(layers_up)
+
+        self.base = ResNet(
+            input_shape,
+            block,
+            layers,
+            num_classes=1,
+            dilation=dilation,
+            dilation_growth=dilation_growth,
+            return_indices=True,
+            return_sizes=True,
+            skip_connection=skip_connection)
+
+        last_layer = [
+            obj for obj in self.base.modules() if isinstance(obj, nn.Conv2d)
+        ][-1]
         self.inplanes = last_layer.out_channels
 
-        self.layer1 = self._make_up_layer(blockup, layers[3], stride=2).apply(
-                      partial(self._nostride_dilate, dilate=dilation))
-        self.layer2 = self._make_up_layer(blockup, layers[2], stride=2).apply(
-                      partial(self._nostride_dilate, dilate=dilation/2))
-        self.layer3 = self._make_up_layer(blockup, layers[1], stride=2).apply(
-                      partial(self._nostride_dilate, dilate=dilation/4))
-        self.layer4 = self._make_up_layer(blockup, layers[0], outplanes=64)
+        for i, layer in enumerate(layers_up):
 
-        self.unpool = nn.MaxUnpool2d(kernel_size=(3, 3), stride=(2, 2),
-                                     padding=1)
-        self.deconv = nn.ConvTranspose2d(self.inplanes, 2, kernel_size=7,
-                                         stride=2, padding=3, bias=False)
+            if isinstance(layer, int):
+                blocks = layer
+                channels = 2**(6 + (len(layers_up) - 1) - i)
+                stride = 2 if i < (len(layers_up) - 1) else 1
+                dilate = dilation / dilation_growth**i
+            elif isinstance(layer, tuple) and isinstance(layer[1], dict):
+                blocks = layer[0]
+                channels = layer[1].get('depth', 2**(6 + i))
+                stride = layer[1].get('stride', 2
+                                      if i < (len(layers_up) - 1) else 1)
+                block_up = layer[1].get('block', block_up)
+                dilate = layer[1].get('dilation',
+                                      dilation / dilation_growth**i)
+            else:
+                raise ValueError('Elements of {} should either be int '.format(
+                    layers) + 'or tuple of (int, dict)')
+
+            outplanes = 64 if i == (len(layers_up) - 1) else None
+
+            self.__dict__['_modules']['layer{}'.format(
+                i + 1)] = self._make_up_layer(
+                    block_up,
+                    channels,
+                    blocks,
+                    stride=stride,
+                    outplanes=outplanes).apply(
+                        partial(self._nostride_dilate, dilate=dilate))
+
+        self.unpool = nn.MaxUnpool2d(
+            kernel_size=(3, 3), stride=(2, 2), padding=1)
+        self.deconv = nn.ConvTranspose2d(
+            self.inplanes, 2, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn = nn.BatchNorm2d(2)
         self.relu = nn.ReLU(inplace=True)
         self.classifier = nn.Conv2d(2, num_classes, kernel_size=1, padding=0)
 
-    def _make_up_layer(self, block, blocks, outplanes=None, stride=1):
+    def _make_up_layer(self,
+                       block,
+                       planes,
+                       blocks,
+                       outplanes=None,
+                       stride=1,
+                       mirror=True):
         upsample = None
         if outplanes is None:
-            outplanes = self.inplanes // 2
+            outplanes = int(planes * block.expansion)
 
-        if stride != 1 or self.inplanes != outplanes :
+        if stride != 1 or self.inplanes != outplanes:
             upsample = nn.Sequential(
-                nn.ConvTranspose2d(self.inplanes, outplanes,
-                          kernel_size=1, stride=stride, bias=False),
+                nn.ConvTranspose2d(
+                    self.inplanes,
+                    outplanes,
+                    kernel_size=1,
+                    stride=stride,
+                    bias=False),
                 nn.BatchNorm2d(outplanes),
             )
 
+        if mirror is False:
+            raise NotImplementedError
+
         layers = []
         for i in range(1, blocks):
-            layers.append(block(self.inplanes, self.inplanes))
-        layers.append(block(self.inplanes, outplanes, stride, upsample))
+            layers.append(block(self.inplanes, planes, self.inplanes))
+        layers.append(
+            block(self.inplanes, planes, outplanes, stride, upsample))
         self.inplanes = outplanes
+
         return nn.Sequential(*layers)
 
     def _nostride_dilate(self, m, dilate):
@@ -375,7 +537,7 @@ class ResNetDeconv(nn.Module):
             # the convolution with stride
             if m.stride == (2, 2):
                 m.stride = (1, 1)
-                min_dilate = int(max(1, dilate//2))
+                min_dilate = int(max(1, dilate // 2))
                 if m.kernel_size == (3, 3):
                     m.dilation = (min_dilate, min_dilate)
                     m.padding = (min_dilate, min_dilate)
@@ -390,13 +552,21 @@ class ResNetDeconv(nn.Module):
         orig_size = x.size()[-2:]
 
         # Extracting the features
-        x, pool_idx, size = self.base(x)
+        features, pool_idx, size = self.base(x)
 
         # Reconstructing feature map
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
+        x = self.layer1(features[-1])
+
+        if self.skip_connection == True:
+            for i in range(1, self.nb_blocks):
+                x = self.__dict__['_modules']['layer{}'.format(i + 1)](
+                    x + features[-(i + 1)])
+                print(features[-(i + 1)].size())
+                print(x.size())
+                print()
+        else:
+            for i in range(1, self.nb_blocks):
+                x = self.__dict__['_modules']['layer{}'.format(i + 1)](x)
 
         x = F.upsample(x, size=size[-1][-2:], mode='bilinear')
         x = self.unpool(x, pool_idx, output_size=size[-2])
@@ -404,11 +574,10 @@ class ResNetDeconv(nn.Module):
         x = self.deconv(x)
         x = self.bn(x)
         x = self.relu(x)
-        # x = F.upsample(x, scale_factor=2, mode=self.upsampling)
 
         # Projecting to belief map
         x = self.classifier(x)
-        x = F.upsample(x, size=orig_size, mode=self.upsampling)
+        x = F.upsample(x, size=orig_size[-2:], mode='bilinear')
 
         return x
 

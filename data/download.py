@@ -117,7 +117,33 @@ def read_data(data_dir, nb_bg_frames=150):
             os.path.join(data_dir, video_type, video_name, 'bg_model.jpg'))
     print('Ok!')
 
+    print('Looking for corrupted ROI files... ', end='')
+    for k, v in bg_groups.items():
+        video_type, video_name = k.split('-', maxsplit=1)
+
+        check_roi(os.path.join(data_dir, video_type, video_name))
+
+    print('Ok!')
+
     return df
+
+
+def check_roi(video_path):
+    """Checks if ROI.bmp is readable, if it isn't uses ROI.jpg to create a new
+    non-corrupted ROI.bmp
+    """
+    img_path = os.path.join(video_path, 'ROI.bmp')
+
+    try:
+        Image.open(img_path)
+    except OSError:
+        print("Corrupted '{}'. Creating a new one.".format(img_path))
+        os.rename(img_path, img_path + '.bk')
+        img = Image.open(os.path.join(video_path, 'ROI.jpg'))
+        pix = np.array(img)
+        mask = 255 * (pix.argmax(2) == 0).astype(pix.dtype)
+        # mask = np.tile(mask[..., None], 3)
+        Image.fromarray(mask).save(img_path)
 
 
 def create_manifest(data_dir, manifest_path, rate):

@@ -41,11 +41,9 @@ def parse_kwparams(kwlst):
     @return dictionary with the key-worded parameters.
     '''
 
-    # Testing if is empty
-    if kwlst:
-        # Set in dictionary form
-        kwparams = {k: cast_arg(v) for k, v in zip(kwlst[::2], kwlst[1::2])}
-        return kwparams
-    else:
-        # Return empty dictionary
-        return {}
+    # Set in dictionary form
+    kwparams = {}
+    for param in kwlst:
+        k, v = param.split('=')
+        kwparams[k] = v
+    return kwparams

@@ -1,24 +1,26 @@
-import os
-import numpy as np
 import argparse
+import os
 import warnings
-import pandas as pd
-import glob2 as glob
 
+import glob2 as glob
+import numpy as np
+import pandas as pd
 import torch
 import torch.utils.data as data  # Torch dataset class
 
 import torchvision.transforms as vision_transforms
 from torchvision.datasets.folder import default_loader
+import torchvision.transforms.functional as F
 
+from ..transforms import *
+from ..utils.img_utils import IMG_EXTENSIONS
 from .file import DataFile
 
-from ..transforms import ToTensor
-
+C, H, W = 2, 192, 256
 
 class CDNetDataset(data.Dataset):
 
-    def __init__(self, manifest_path, database_path, transform=None):
+    def __init__(self, manifest_path, database_path, transform=None, **kwargs):
         '''
         Inits an ImageFile instance.
 
@@ -42,6 +44,11 @@ class CDNetDataset(data.Dataset):
 
         # Saving data
         self.manifest_path = manifest_path
+
+        self.input_shape = kwargs.get('input_shape', (C, H, W))
+
+        if not transform:
+            transform = transforms(self.input_shape, **kwargs)
         self.transform = transform
 
     def __getitem__(self, index):
@@ -58,15 +65,15 @@ class CDNetDataset(data.Dataset):
 
         input_ = self.loader(input_)
         bg_model = self.loader(bg_model)
-        target = self.loader(target)
-        roi = self.loader(roi)
+        target = self.loader(target, to_gray=True)
+        roi = self.loader(roi, to_gray=True)
 
         # Transforming image
         if self.transform is not None:
             input_, target, roi = self.transform((input_, bg_model, target, roi))
 
         # Return
-        return input_, bg_model, target, roi
+        return input_, target, roi
 
     def __len__(self):
         '''
@@ -76,8 +83,13 @@ class CDNetDataset(data.Dataset):
         '''
         return len(self.data)
 
-    def loader(self, path):
-        return default_loader(path)
+    def loader(self, path, to_gray=False):
+        img = default_loader(path)
+
+        if to_gray:
+            img = F.to_grayscale(img)
+
+        return img
 
     def from_file(self, csv_file):
         # Opening file
@@ -104,22 +116,20 @@ class CDNetDataset(data.Dataset):
 
         return list(zip(imgs, targets))
 
-def transforms(num_channels, training=False, augmentation=False):
 
-    if not training and augmentation:
+def transforms(img_shape,training=False, augmentation=False):
+
+    if not training and augmentation is not False:
         raise ValueError('Combinations of parameters not permitted. '
                          'training=False, augmentation=True')
 
-    compose = [ToTensor()]
+    C, H, W = img_shape
 
-    if not augmentation:
-        compose = [vision_transforms.CenterCrop(224)] + compose
-    else:
-        compose = [vision_transforms.RandomSizedCrop(224),
-                   vision_transforms.RandomHorizontalFlip()] + compose
+    compose = [Resize((H, W)), MergeChannels(), ToTensor()]
 
-    if not training:
-        compose = [vision_transforms.Scale(W)] + compose
+    if C < 3:
+        compose = [Grayscale(1)] + compose
+    if augmentation is True:
+            compose = [RandomHorizontalFlip()] + compose
 
     return vision_transforms.Compose(compose)
-

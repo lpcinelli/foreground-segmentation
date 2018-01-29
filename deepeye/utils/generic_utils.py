@@ -98,8 +98,8 @@ def find_threshold(y_pred, y_true, metric, min_val=0, max_val=1.0, eps=1e-6):
         thrs_hgh = (thrs_cur + max_val) / 2.0
 
         # Scores
-        scr_low = metric(y_pred, y_true, thrs_low)
-        scr_hgh = metric(y_pred, y_true, thrs_hgh)
+        scr_low = metric(y_true, y_pred, thrs_low)
+        scr_hgh = metric(y_true, y_pred, thrs_hgh)
 
         # Testing
         if (scr_low >= scr_hgh):

@@ -9,13 +9,14 @@ from .utils.generic_utils import AverageMeter
 
 
 class Model(object):
-    def __init__(self, arch, criterion=None, optimizer=None):
+    def __init__(self, arch, criterion=None, optimizer=None, threshold=0.5):
         if not isinstance(arch, nn.Module):
             raise ValueError('Arch should be an instance of torch.nn.Module')
 
         self.arch = arch
         self.set_criterion(criterion)
         self.set_optimizer(optimizer)
+        self.set_threshold(threshold)
 
         self.cuda = False
         if next(self.arch.parameters()).is_cuda:
@@ -33,6 +34,15 @@ class Model(object):
             raise ValueError('Optimizer should be an instance of '
                              'torch.optim.Optimizer')
         self._optimizer = optimizer
+
+    def set_threshold(self, threshold):
+        if not isinstance(threshold, float) or threshold > 1 or threshold < 0:
+            raise ValueError('Threshold should be a float in the '
+                             'interval [0,1]')
+        if hasattr(self._criterion, 'threshold'):
+            self._threshold = self._criterion.threshold
+        else:
+            self._threshold = threshold
 
     @property
     def optimizer(self):
@@ -175,22 +185,24 @@ class Model(object):
                     target = target.cuda(async=async)
                     roi = roi.cuda(async=async)
                 target_var = torch.autograd.Variable(target, volatile=volatile)
-                roi_var = torch.autograd.Variable(roi, volatile=volatile)
+                roi_var = torch.autograd.Variable(roi, volatile=volatile,
+                            requires_grad=False)
 
             # Compute output
             output = self.arch(input_var)
             if mode == 'predict':
-                outputs[seen:seen + batch_size, ..
-                        .] = output.data.cpu().numpy()
+                outputs[seen:seen + batch_size, ...] =\
+                    output.data.cpu().numpy()
                 seen += batch_size
             else:
                 loss = self.criterion(output, target_var, roi=roi_var)
 
                 # Updating meters
                 meters['{}_loss'.format(mode)].update(loss.data[0], batch_size)
+                output = (torch.sigmoid(output) > self._threshold)
                 for name, metric in metrics.items():
                     meters['{}_{}'.format(mode, name)].update(
-                        metric(output, target_var, roi=roi_var).data[0],
+                        metric(target.byte(), output, roi=roi.byte()),
                         batch_size)
 
                 if mode == 'train':

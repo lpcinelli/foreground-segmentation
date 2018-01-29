@@ -6,7 +6,7 @@ from collections import OrderedDict
 import numpy as np
 import torch
 
-from inflection import titleize
+from inflection import titleize, humanize
 
 from .utils.generic_utils import AverageMeter
 
@@ -136,7 +136,8 @@ class Progbar(Callback):
             # Add metrics alongsise with the loss
             msg += [
                 '{0} {1.val:.3f} ({1.avg:.3f})\t'.format(
-                    titleize(name), meter) for name, meter in metrics.items()
+                    titleize(humanize(name)), meter)
+                        for name, meter in metrics.items()
             ]
 
             print(''.join(msg))
@@ -173,6 +174,7 @@ class ModelCheckpoint(Callback):
             self.history['epochs'] = np.arange(end_epoch)
             for name in metrics_name:
                 self.history[name] = []
+        print(self.history.keys())
 
     def on_epoch_begin(self, epoch):
         self.epoch = epoch
@@ -238,8 +240,8 @@ class Visdom(Callback):
 
         self.opts = {
             m: dict(
-                title=titleize(m),
-                ylabel=titleize(m),
+                title=titleize(humanize(m)),
+                ylabel=titleize(humanize(m)),
                 xlabel='Epoch',
                 legend=[titleize(mode) for mode in self.modes])
             for m in self.metrics

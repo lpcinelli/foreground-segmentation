@@ -9,14 +9,14 @@ import pandas as pd
 import torch
 import torch.backends.cudnn as cudnn
 
-import codes.archs as archs
-import codes.datasets as datasets
+import deepeye.archs as archs
+import deepeye.datasets as datasets
 import torchvision.transforms as transforms
-from codes import callbacks, losses, metrics
-from codes.model import Model
-from codes.transforms import ToTensor
-from codes.utils import arg_utils
-from inflection import titleize
+from deepeye import callbacks, losses, metrics
+from deepeye.model import Model
+from deepeye.transforms import ToTensor
+from deepeye.utils import arg_utils
+from inflection import titleize, humanize
 
 arch_names = sorted(name for name in archs.__dict__
                     if name.islower() and not name.startswith("__")
@@ -41,10 +41,9 @@ def _common(args, training=False):
     if 'augmentation' not in args:
         args.augmentation = False
 
-    dataset = datasets.ForestDataset(
+    dataset = datasets.CDNetDataset(
         args.manifest,
         args.img_dir,
-        exceptions=args.exceptions,
         training=training,
         augmentation=args.augmentation)
 
@@ -60,7 +59,7 @@ def _common(args, training=False):
     print("==> args: {}".format(args.arch_params))
     arch = archs.__dict__[args.arch](
         input_shape=dataset.input_shape,
-        num_classes=len(dataset.classes),
+        num_classes=1,
         **arg_utils.parse_kwparams(args.arch_params))
 
     print(arch)
@@ -134,12 +133,11 @@ def train(args):
     model.set_optimizer(optimizer)
 
     val_loader = None
-    monitor = 'train_f2-score'
+    monitor = 'train_f1-score'
     if args.val_manifest:
-        val_set = datasets.ForestDataset(
+        val_set = datasets.CDNetDataset(
             args.val_manifest,
             args.img_dir,
-            exceptions=args.exceptions,
             training=False)
         val_loader = torch.utils.data.DataLoader(
             val_set,
@@ -147,7 +145,7 @@ def train(args):
             shuffle=False,
             num_workers=args.workers,
             pin_memory=args.cuda)
-        monitor = 'val_f2-score'
+        monitor = 'val_f1-score'
 
     callback_list = [
         callbacks.Progbar(print_freq=args.print_freq),
@@ -165,7 +163,13 @@ def train(args):
         train_loader,
         args.epochs,
         val_loader=val_loader,
-        metrics={'f2-score': metrics.f2_score},
+        metrics={'f1-score': metrics.f1_score,
+                 'recall-score': metrics.recall_score,
+                 'prec-score': metrics.prec_score,
+                 'false-neg-rate': metrics.false_neg_rate,
+                 'true-pos-rate': metrics.true_pos_rate,
+                 'IoU-score': metrics.IoU_score,
+                 'total-error': metrics.total_error},
         callback=callbacks.Compose(callback_list),
         start_epoch=args.start_epoch)
 
@@ -173,11 +177,19 @@ def train(args):
 def eval(args):
     loader, _, model = _common(args, training=False)
 
-    outputs = model.eval_loader(loader, metrics={'f2_score': metrics.f2_score})
+    outputs = model.eval_loader(
+        loader,
+        metrics={'f1-score': metrics.f1_score,
+                 'recall-score': metrics.recall_score,
+                 'prec-score': metrics.prec_score,
+                 'false-neg-rate': metrics.false_neg_rate,
+                 'true-pos-rate': metrics.true_pos_rate,
+                 'IoU-score': metrics.IoU_score,
+                 'total-error': metrics.total_error})
 
     msg = ['==> ']
     msg += [
-        '{0} {1.avg:.3f}\t'.format(titleize(name), meter)
+        '{0} {1.avg:.3f}\t'.format(titleize(humanize(name)), meter)
         for name, meter in outputs.items()
     ]
     print(''.join(msg))
@@ -215,10 +227,10 @@ if __name__ == '__main__':
     parser.add_argument(
         '--img-dir',
         metavar='DIR',
-        default='data/train-jpg',
+        default='data/datafiles',
         help='path to dataset')
     parser.add_argument(
-        '--manifest', type=str, metavar='MANIFEST', help='path to .csv')
+        '--manifest', type=str, metavar='MANIFEST', help='path to .csv', required=True)
     # Loader
     parser.add_argument(
         '-b',
@@ -300,7 +312,8 @@ if __name__ == '__main__':
         '--augmentation',
         '--aug',
         action='store_true',
-        help='use data augmentation')
+        # nargs='*',
+        help='specify which data augmetantion methods to use')
     tr_parser.add_argument(
         '--val_manifest',
         '--val',

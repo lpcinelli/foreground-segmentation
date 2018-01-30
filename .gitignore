@@ -305,3 +305,4 @@ $RECYCLE.BIN/
 # Custom ignore
 data/**/*
 .vscode
+models/*

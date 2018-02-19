@@ -46,7 +46,8 @@ def _common(args, training=False):
         args.manifest,
         args.img_dir,
         training=training,
-        augmentation=args.augmentation)
+        augmentation=args.augmentation,
+        input_shape=tuple(map(int, args.shape.split(','))))
 
     loader = torch.utils.data.DataLoader(
         dataset,
@@ -270,7 +271,12 @@ if __name__ == '__main__':
         nargs='+',
         type=str,
         help='model architecture params')
-
+    parser.add_argument(
+        '--shape',
+        metavar='C,H,W',
+        default=','.join(map(str, datasets.DEFAULT_SHAPE)),
+        type=str,
+        help='nb of channels, height and width of input image')
     # Loss
     parser.add_argument(
         '--loss',

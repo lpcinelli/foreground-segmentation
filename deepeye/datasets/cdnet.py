@@ -16,7 +16,7 @@ from ..transforms import *
 from ..utils.img_utils import IMG_EXTENSIONS
 from .file import DataFile
 
-C, H, W = 2, 192, 256
+DEFAULT_SHAPE = (2, 192, 256)
 
 class CDNetDataset(data.Dataset):
 
@@ -45,7 +45,7 @@ class CDNetDataset(data.Dataset):
         # Saving data
         self.manifest_path = manifest_path
 
-        self.input_shape = kwargs.get('input_shape', (C, H, W))
+        self.input_shape = kwargs.pop('input_shape', DEFAULT_SHAPE)
 
         if not transform:
             transform = transforms(self.input_shape, **kwargs)
@@ -117,13 +117,13 @@ class CDNetDataset(data.Dataset):
         return list(zip(imgs, targets))
 
 
-def transforms(img_shape,training=False, augmentation=False):
+def transforms(input_shape,training=False, augmentation=False):
 
     if not training and augmentation is not False:
         raise ValueError('Combinations of parameters not permitted. '
                          'training=False, augmentation=True')
 
-    C, H, W = img_shape
+    C, H, W = input_shape
 
     compose = [Resize((H, W)), MergeChannels(), ToTensor()]
 

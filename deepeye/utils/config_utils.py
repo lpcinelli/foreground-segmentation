@@ -44,6 +44,7 @@ def create_config_file(path, args=None):
         args['arch'] = 'toynet'  # model architecture
         args['arch_params'] = []  # model architecture params
         args['loss'] = 'bce'  # losses
+        args['shape'] = '' # input shape
         args['workers'] = 4  # number of data loading workers
         args['epochs'] = 90  # number of total epochs to run
         args['start_epoch'] = 0  # manual epoch number (useful on restarts)

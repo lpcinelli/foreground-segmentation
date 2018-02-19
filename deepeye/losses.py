@@ -81,6 +81,7 @@ class MaskedSoftDiceLoss(Module):
     def forward(self, input, target, roi=None):
         if roi is None:
             roi = torch.ones_like(input)
+        input = torch.sigmoid(input)
         intersect = (input * target * roi).view(input.size(0), -1).sum(1)
         union = ((input + target) * roi).view(input.size(0), -1).sum(1)
 

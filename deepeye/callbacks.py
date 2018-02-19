@@ -121,7 +121,7 @@ class Progbar(Callback):
             msg = []
             if self.mode.startswith('train'):
                 msg += [
-                    'Epoch: [{0}][{1}/{2}]\t'.format(self.epoch, self.batch,
+                    'Epoch: [{0}][{1}/{2}]  '.format(self.epoch, self.batch,
                                                      self.size)
                 ]
             else:
@@ -130,13 +130,13 @@ class Progbar(Callback):
                         titleize(self.mode), self.batch, self.size)
                 ]
 
-            msg += ['Time {0.val:.3f} ({0.avg:.3f})\t'.format(self.batch_time)]
-            msg += ['Data {0.val:.3f} ({0.avg:.3f})\t'.format(self.data_time)]
+            msg += ['Time {0.val:.3f} ({0.avg:.3f})  '.format(self.batch_time)]
+            msg += ['Data {0.val:.3f} ({0.avg:.3f})  '.format(self.data_time)]
 
             # Add metrics alongsise with the loss
             msg += [
-                '{0} {1.val:.3f} ({1.avg:.3f})\t'.format(
-                    titleize(humanize(name)), meter)
+                '{0} {1.val:.3f} ({1.avg:.3f})  '.format(
+                    titleize(humanize(name.rsplit('_')[1].replace('-score',''))), meter)
                         for name, meter in metrics.items()
             ]
 

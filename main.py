@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.backends.cudnn as cudnn
+from inflection import humanize, titleize
 
 import deepeye.archs as archs
 import deepeye.datasets as datasets
@@ -16,7 +17,6 @@ from deepeye import callbacks, losses, metrics
 from deepeye.model import Model
 from deepeye.transforms import ToTensor
 from deepeye.utils import arg_utils
-from inflection import titleize, humanize
 
 arch_names = sorted(name for name in archs.__dict__
                     if name.islower() and not name.startswith("__")
@@ -133,7 +133,7 @@ def train(args):
     model.set_optimizer(optimizer)
 
     val_loader = None
-    monitor = 'train_f1-score'
+    monitor = 'train_f1'
     if args.val_manifest:
         val_set = datasets.CDNetDataset(
             args.val_manifest,
@@ -145,7 +145,7 @@ def train(args):
             shuffle=False,
             num_workers=args.workers,
             pin_memory=args.cuda)
-        monitor = 'val_f1-score'
+        monitor = 'val_f1'
 
     callback_list = [
         callbacks.Progbar(print_freq=args.print_freq),
@@ -163,12 +163,12 @@ def train(args):
         train_loader,
         args.epochs,
         val_loader=val_loader,
-        metrics={'f1-score': metrics.f1_score,
-                 'recall-score': metrics.recall_score,
-                 'prec-score': metrics.prec_score,
-                 'false-neg-rate': metrics.false_neg_rate,
-                 'true-pos-rate': metrics.true_pos_rate,
-                 'IoU-score': metrics.IoU_score,
+        metrics={'f1': metrics.f1_score,
+                 'recall': metrics.recall_score,
+                 'prec': metrics.prec_score,
+                 'FNR': metrics.false_neg_rate,
+                 'TPR': metrics.true_pos_rate,
+                 'IoU': metrics.IoU_score,
                  'total-error': metrics.total_error},
         callback=callbacks.Compose(callback_list),
         start_epoch=args.start_epoch)
@@ -179,12 +179,12 @@ def eval(args):
 
     outputs = model.eval_loader(
         loader,
-        metrics={'f1-score': metrics.f1_score,
-                 'recall-score': metrics.recall_score,
-                 'prec-score': metrics.prec_score,
-                 'false-neg-rate': metrics.false_neg_rate,
-                 'true-pos-rate': metrics.true_pos_rate,
-                 'IoU-score': metrics.IoU_score,
+        metrics={'f1': metrics.f1_score,
+                 'recall': metrics.recall_score,
+                 'prec': metrics.prec_score,
+                 'FNR': metrics.false_neg_rate,
+                 'TPR': metrics.true_pos_rate,
+                 'IoU': metrics.IoU_score,
                  'total-error': metrics.total_error})
 
     msg = ['==> ']

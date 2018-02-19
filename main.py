@@ -3,6 +3,7 @@ import errno
 import getpass
 import os
 import time
+from functools import partial
 
 import numpy as np
 import pandas as pd
@@ -151,7 +152,8 @@ def train(args):
         callbacks.Progbar(print_freq=args.print_freq),
         callbacks.ModelCheckpoint(
             args.save, monitor, mode='max', history=history.copy()),
-        callbacks.LearningRateScheduler(adjust_learning_rate),
+        callbacks.LearningRateScheduler(partial(
+            adjust_learning_rate, factor=args.lr_factor, every=args.lr_span)),
     ]
 
     if args.visdom:
@@ -341,6 +343,20 @@ if __name__ == '__main__':
         type=float,
         metavar='LR',
         help='initial learning rate')
+    tr_parser.add_argument(
+        '--lr-factor',
+        '--learning-decay',
+        default=2,
+        type=float,
+        metavar='LRF',
+        help='learning rate decay factor')
+    tr_parser.add_argument(
+        '--lr-span',
+        '--lr-time',
+        default=10,
+        type=float,
+        metavar='LRS',
+        help='time span for each learning rate step')
     tr_parser.add_argument(
         '--momentum', default=0.9, type=float, metavar='M', help='momentum')
     tr_parser.add_argument(

@@ -197,3 +197,18 @@ class ToTensor(object):
             Tensor: Converted image.
         """
         return tuple(map(lambda x: F.to_tensor(x), pics))
+
+
+class RoiCrop(object):
+    """Crop the given image Tensor according to Region-Of-Interest (ROI)
+    """
+
+    def __call__(self, pics):
+        """
+        Args:
+            pic (Tensor or numpy.ndarray): Image to be cropped.
+        Returns:
+            Tensor: Cropped image.
+        """
+        input_, target, roi = pics
+        return (input_ * roi, target * roi, roi)

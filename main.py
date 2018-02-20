@@ -41,12 +41,15 @@ def _common(args, training=False):
 
     if 'augmentation' not in args:
         args.augmentation = False
+    if 'shrink_negatives' not in args:
+        args.shrink_negatives = False
 
     dataset = datasets.CDNetDataset(
         args.manifest,
         args.img_dir,
         training=training,
         augmentation=args.augmentation,
+        shrink_data=args.shrink_negatives,
         input_shape=tuple(map(int, args.shape.split(','))))
 
     loader = torch.utils.data.DataLoader(
@@ -322,6 +325,11 @@ if __name__ == '__main__':
         action='store_true',
         # nargs='*',
         help='specify which data augmetantion methods to use')
+    tr_parser.add_argument(
+        '--shrink-negatives',
+        '--shrink',
+        action='store_true',
+        help='specify if negative only imgs should be removed from training')
     tr_parser.add_argument(
         '--val_manifest',
         '--val',

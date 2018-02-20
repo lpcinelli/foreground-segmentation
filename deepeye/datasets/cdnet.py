@@ -32,7 +32,9 @@ class CDNetDataset(data.Dataset):
 
         # Loads data
         self.database_path = database_path
-        data = self.from_file(manifest_path)
+        training = kwargs.get('training', False)
+        shrink_data = kwargs.pop('shrink_data', False)
+        data = self.from_file(manifest_path, training, shrink_data)
 
         if len(data) == 0:
             raise(RuntimeError("Found 0 images in path: " + manifest_path + "\n" +
@@ -46,7 +48,6 @@ class CDNetDataset(data.Dataset):
         self.manifest_path = manifest_path
 
         self.input_shape = kwargs.pop('input_shape', DEFAULT_SHAPE)
-
         if not transform:
             transform = transforms(self.input_shape, **kwargs)
         self.transform = transform
@@ -91,12 +92,15 @@ class CDNetDataset(data.Dataset):
 
         return img
 
-    def from_file(self, csv_file):
+    def from_file(self, csv_file, training, shrink_data):
         # Opening file
         dataset = pd.read_csv(csv_file)
         imgs, targets = [], []
 
-        for i, row in dataset.iterrows():
+        for _, row in dataset.iterrows():
+            if training and shrink_data and row['negative_only']:
+                continue
+
             input_path = os.path.join(self.database_path, row['video_type'],
                                       row['video_name'], 'input',
                                       row['input_frame'])

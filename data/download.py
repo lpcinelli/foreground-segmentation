@@ -81,6 +81,11 @@ def read_data(data_dir, nb_bg_frames=150):
                 int(sample) for sample in f.readline().strip().split(' ')
             ]
 
+            negative_only = not np.asarray(Image.open(
+                                            os.path.join(data_dir, video_type,
+                                                video_name, 'groundtruth',
+                                                target_frame))).any()
+
             # Ignoring half the frames in the new categories
             if video_type in new_types:
                 roi_end = int((roi_end + roi_start) / 2) - 1
@@ -98,7 +103,8 @@ def read_data(data_dir, nb_bg_frames=150):
             if frame_nb < roi_start or frame_nb > roi_end:
                 continue
 
-        frame_list.append([video_type, video_name, input_frame, target_frame])
+        frame_list.append([
+            video_type, video_name, input_frame, target_frame, negative_only])
 
     bg_groups = {
         k: np.median(np.stack(v, axis=0).astype(np.float), axis=0)
@@ -107,7 +113,8 @@ def read_data(data_dir, nb_bg_frames=150):
 
     df = pd.DataFrame(
         frame_list,
-        columns=['video_type', 'video_name', 'input_frame', 'target_frame'])
+        columns=['video_type','video_name', 'input_frame',
+            'target_frame', 'negative_only'])
 
     print('Saving bg models... ', end='')
     for k, v in bg_groups.items():

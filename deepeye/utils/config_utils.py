@@ -39,6 +39,7 @@ def create_config_file(path, args=None):
         args = {}
         args['img_path'] = ''  # path to dataset
         args['augmentation'] = ''  #TODO use data augmentation
+        args['shrink-negatives'] = False # supress imgs w/ neg pixels only
         args['train'] = ''  # path to train.csv
         args['val'] = ''  # path to val.csv
         args['arch'] = 'toynet'  # model architecture

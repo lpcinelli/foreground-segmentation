@@ -247,7 +247,7 @@ class ResNet(nn.Module):
                  skip_connection=False):
         super(ResNet, self).__init__()
 
-        C, W, H = input_shape
+        C, _, _ = input_shape
         self.inplanes = 64
         self.return_indices = return_indices
         self.return_sizes = return_sizes
@@ -376,7 +376,6 @@ class ResNetUpSample(nn.Module):
     def __init__(self, input_shape, block, layers, num_classes=1, dilation=1):
         super(ResNetUpSample, self).__init__()
 
-        _, H, W = input_shape
         self.base = ResNet(
             input_shape, block, layers, num_classes=1, dilation=dilation)
         last_layer = [
@@ -428,7 +427,6 @@ class ResNetDeconv(nn.Module):
                  skip_connection=False):
         super(ResNetDeconv, self).__init__()
 
-        _, H, W = input_shape
         # block_up = kwargs.pop('block_up', None)
         # layers_up = kwargs.pop('layers_up', layers[::-1])
         self.skip_connection = skip_connection
@@ -437,7 +435,7 @@ class ResNetDeconv(nn.Module):
             block_up = BasicBlockUp if block.__name__ == 'BasicBlock' \
                                    else BottleneckUp
         elif (block_up is not BasicBlockUp) and (block_up is not BottleneckUp):
-            raise ValueError('Invalid upsampling block {}'.format())
+            raise ValueError('Invalid upsampling block {}'.format(block_up))
 
         if layers_up is None:
             layers_up = layers[::-1]
@@ -631,7 +629,7 @@ def resnet34(pretrained=False, **kwargs):
                                                  [3, 4, 6, 3], **kwargs)
 
     if pretrained:
-        _load_weights(model.base.load_state_dict, 'resnet34', C)
+        _load_weights(model.base.load_state_dict, 'resnet34', input_shape[0])
     return model
 
 
@@ -655,7 +653,7 @@ def resnet50(pretrained=False, **kwargs):
                                                  [3, 4, 6, 3], **kwargs)
 
     if pretrained:
-        _load_weights(model.base.load_state_dict, 'resnet50', C)
+        _load_weights(model.base.load_state_dict, 'resnet50', input_shape[0])
     return model
 
 
@@ -678,7 +676,7 @@ def resnet101(pretrained=False, **kwargs):
     model = MODELS[''.join(['ResNet', up_mode])](input_shape, Bottleneck,
                                                  [3, 4, 23, 3], **kwargs)
     if pretrained:
-        _load_weights(model.base.load_state_dict, 'resnet101', C)
+        _load_weights(model.base.load_state_dict, 'resnet101', input_shape[0])
     return model
 
 
@@ -706,7 +704,7 @@ def resnet152(pretrained=False, **kwargs):
     return model
 
 
-def _load_weights(load_dict, base_resnet, C=0):
+def _load_weights(load_dict, base_resnet, C, first_layer=True):
     """ Loads weights pretrained on ImageNet.
         Handles nb of channels other than 3 (RGB)
         Args:
@@ -716,7 +714,7 @@ def _load_weights(load_dict, base_resnet, C=0):
     """
     ref = model_zoo.load_url(model_urls[base_resnet])
     conv1 = ref.pop('conv1.weight')
-    if C == 0:
+    if first_layer is False:
         # Do not load pretrained weights for the first conv layer
         pass
     elif C == 1:

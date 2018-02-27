@@ -30,19 +30,19 @@ class LeNet(nn.Module):
         self.return_sizes = return_sizes
 
         self.block1 = nn.Sequential(
-            nn.Conv2d(C, 6, kernel_size=5, padding=2),
+            nn.Conv2d(C, 6, kernel_size=5, padding=2, bias=False),
             nn.BatchNorm2d(6),
             nn.ReLU(inplace=True),
         )
 
         self.block2 = nn.Sequential(
-            nn.Conv2d(6, 16, kernel_size=5, padding=2),
+            nn.Conv2d(6, 16, kernel_size=5, padding=2, bias=False),
             nn.BatchNorm2d(16),
             nn.ReLU(inplace=True),
         )
 
         self.block3 = nn.Sequential(
-            nn.Conv2d(16, 120, kernel_size=3, padding=1),
+            nn.Conv2d(16, 120, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(120),
             nn.ReLU(inplace=True),
         )

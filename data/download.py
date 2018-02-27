@@ -11,7 +11,7 @@ from PIL import Image
 from tqdm import tqdm
 
 URL = "http://wordpress-jodoin.dmi.usherb.ca/static/dataset/dataset2014.zip"
-MD5 = "054a98b09b642b61e22265f9374e75d6"
+MD5 = "d86332547edbc25f4ddbcd49f92413cf"
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 
 

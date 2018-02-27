@@ -10,6 +10,13 @@ class MaskedBinaryCrossEntropy(Module):
         return (F.binary_cross_entropy(
             torch.sigmoid(input), target, reduce=False) * roi).sum() / roi.sum()
 
+
+class BinaryCrossEntropy(Module):
+    def forward(self, input, target, roi=None):
+        if roi is None:
+            roi = torch.ones_like(input)
+        return (F.binary_cross_entropy(torch.sigmoid(input), target)).sum()
+
 bce = MaskedBinaryCrossEntropy
 
 

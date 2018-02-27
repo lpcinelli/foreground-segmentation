@@ -7,6 +7,12 @@ from PIL import Image
 import torchvision.transforms.functional as F
 from torchvision.transforms import transforms
 
+INTERPOLATION = {
+    'NEAREST': Image.NEAREST,
+    'BILINEAR': Image.BILINEAR,
+    'BICUBIC': Image.BICUBIC,
+    'LANCZOS': Image.LANCZOS,
+}
 
 class Resize(transforms.Resize):
     """Resize the input PIL Image to the given size.
@@ -17,7 +23,8 @@ class Resize(transforms.Resize):
             i.e, if height > width, then image will be rescaled to
             (size * height / width, size)
         interpolation (int, optional): Desired interpolation. Default is
-            ``PIL.Image.BILINEAR``
+            ``PIL.Image.BILINEAR``. Other options are ``PIL.Image.NEAREST``,
+            ``PIL.Image.BICUBIC`` and ``PIL.Image.LANCZOS``.
     """
 
     def __call__(self, imgs):
@@ -212,3 +219,17 @@ class RoiCrop(object):
         """
         input_, target, roi = pics
         return (input_ * roi, target * roi, roi)
+
+
+class BinarizeTarget(object):
+    """Removes undesired classes hard shadow (50), unknown motion (170)
+    and outside roi (85) by forcing them to be static (0). At the end there is
+    only static/background/negative and motion/foreground/positive.
+    """
+
+    def __call__(self, pics):
+
+        input_, target, roi = pics
+        # target = (target > 0.67).float()
+        target = (target > 0.83).float()
+        return (input_, target, roi)

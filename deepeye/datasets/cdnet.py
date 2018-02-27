@@ -9,8 +9,8 @@ import torch
 import torch.utils.data as data  # Torch dataset class
 
 import torchvision.transforms as vision_transforms
-from torchvision.datasets.folder import default_loader
 import torchvision.transforms.functional as F
+from torchvision.datasets.folder import default_loader
 
 from ..transforms import *
 from ..utils.img_utils import IMG_EXTENSIONS
@@ -129,7 +129,8 @@ def transforms(input_shape,training=False, augmentation=False):
 
     C, H, W = input_shape
 
-    compose = [Resize((H, W)), MergeChannels(), ToTensor()]
+    compose = [Resize((H, W), INTERPOLATION['BILINEAR']), MergeChannels(),
+               ToTensor(), BinarizeTarget()]
 
     if C < 3:
         compose = [Grayscale(1)] + compose

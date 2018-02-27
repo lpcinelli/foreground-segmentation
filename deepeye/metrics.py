@@ -45,19 +45,19 @@ def _sanitize(y_true, y_pred, roi):
 
 
 def _tn(y_true, y_pred, roi):
-    return torch.sum((((y_pred == 0) & (y_true == 0)) * roi).float(), dim=-1)
+    return torch.sum((((y_pred == 0) & (y_true == 0)) * roi).float())
 
 
 def _tp(y_true, y_pred, roi):
-    return torch.sum((((y_pred == 1) & (y_true == 1)) * roi).float(), dim=-1)
+    return torch.sum((((y_pred == 1) & (y_true == 1)) * roi).float())
 
 
 def _fp(y_true, y_pred, roi):
-    return torch.sum((((y_pred == 1) & (y_true == 0)) * roi).float(), dim=-1)
+    return torch.sum((((y_pred == 1) & (y_true == 0)) * roi).float())
 
 
 def _fn(y_true, y_pred, roi):
-    return torch.sum((((y_pred == 0) & (y_true == 1)) * roi).float(), dim=-1)
+    return torch.sum((((y_pred == 0) & (y_true == 1)) * roi).float())
 
 
 def acc_score(y_true, y_pred, roi=None, eps=1e-12):
@@ -66,7 +66,7 @@ def acc_score(y_true, y_pred, roi=None, eps=1e-12):
     tn = _tn(y_true, y_pred, roi)
     tp = _tp(y_true, y_pred, roi)
 
-    return torch.mean((tp + tn) / (roi.float().sum(dim=-1) + eps))
+    return ((tp + tn) / (roi.float().sum(dim=-1) + eps))
 
 
 def prec_score(y_true, y_pred, roi=None, eps=1e-12):
@@ -75,7 +75,7 @@ def prec_score(y_true, y_pred, roi=None, eps=1e-12):
     tp = _tp(y_true, y_pred, roi)
     fp = _fp(y_true, y_pred, roi)
 
-    return torch.mean(tp / (tp + fp + eps))
+    return (tp / (tp + fp + eps))
 
 
 def recall_score(y_true, y_pred, roi=None, eps=1e-12):
@@ -84,7 +84,7 @@ def recall_score(y_true, y_pred, roi=None, eps=1e-12):
     tp = _tp(y_true, y_pred, roi)
     fn = _fn(y_true, y_pred, roi)
 
-    return torch.mean(tp / (tp + fn + eps))
+    return (tp / (tp + fn + eps))
 
 
 def f1_score(y_true, y_pred, roi=None, eps=1e-12):
@@ -100,7 +100,7 @@ def fbeta_score(y_true, y_pred, beta, roi=None, eps=1e-12):
     fp = _fp(y_true, y_pred, roi)
     fn = _fn(y_true, y_pred, roi)
 
-    return torch.mean(
+    return (
         (1 + beta2) * tp / ((1 + beta2) * tp + beta2 * fn + fp + eps))
 
 
@@ -110,7 +110,7 @@ def false_pos_rate(y_true, y_pred, roi=None, eps=1e-12):
     fp = _fp(y_true, y_pred, roi)
     tn = _tn(y_true, y_pred, roi)
 
-    return torch.mean(fp / (fp + tn + eps))
+    return (fp / (fp + tn + eps))
 
 
 def false_neg_rate(y_true, y_pred, roi=None, eps=1e-12):
@@ -119,7 +119,7 @@ def false_neg_rate(y_true, y_pred, roi=None, eps=1e-12):
     fn = _fn(y_true, y_pred, roi)
     tp = _tp(y_true, y_pred, roi)
 
-    return torch.mean(fn / (fn + tp + eps))
+    return (fn / (fn + tp + eps))
 
 
 def true_pos_rate(y_true, y_pred, roi=None, eps=1e-12):
@@ -134,7 +134,7 @@ def true_neg_rate(y_true, y_pred, roi=None, eps=1e-12):
     fp = _fp(y_true, y_pred, roi)
     tn = _tn(y_true, y_pred, roi)
 
-    return torch.mean(tn / (fp + tn + eps))
+    return (tn / (fp + tn + eps))
 
 
 def IoU_score(y_true, y_pred, roi=None, eps=1e-12):
@@ -145,7 +145,7 @@ def IoU_score(y_true, y_pred, roi=None, eps=1e-12):
     fp = _fp(y_true, y_pred, roi)
     fn = _fn(y_true, y_pred, roi)
 
-    return torch.mean(tp / (tp + fp + fn + eps))
+    return (tp / (tp + fp + fn + eps))
 
 
 def total_error(y_true, y_pred, roi=None, eps=1e-12):
@@ -158,4 +158,4 @@ def total_error(y_true, y_pred, roi=None, eps=1e-12):
     fp = _fp(y_true, y_pred, roi)
     fn = _fn(y_true, y_pred, roi)
 
-    return torch.mean((fn + fp) / (tp + fp + tn + fn + eps))
+    return ((fn + fp) / (tp + fp + tn + fn + eps))

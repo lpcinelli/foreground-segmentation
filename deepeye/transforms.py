@@ -180,12 +180,12 @@ class Grayscale(transforms.Grayscale):
 class MergeChannels(object):
     def __call__(self, imgs):
         input_, bg_model, target, roi = imgs
-        return (np.dstack((input_, bg_model)), target, roi)
+        return (np.dstack((bg_model, input_)), target, roi)
 
 
 class ToTensor(object):
     """Convert a ``PIL Image`` or ``numpy.ndarray`` to tensor.
-    Converts a PIL Image or numpy.ndarray (H x W x C) in the range
+    Converts a PIL Image or numpy.ndarray (W x H x C) in the range
     [0, 255] to a torch.FloatTensor of shape (C x H x W) in the range [0.0, 1.0].
     """
 

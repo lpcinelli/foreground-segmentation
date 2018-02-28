@@ -129,8 +129,13 @@ def transforms(input_shape,training=False, augmentation=False):
 
     C, H, W = input_shape
 
-    compose = [Resize((H, W), INTERPOLATION['BILINEAR']), MergeChannels(),
-               ToTensor(), BinarizeTarget()]
+    compose = [Resize((H, W), (INTERPOLATION['BILINEAR'],
+                               INTERPOLATION['BILINEAR'],
+                               INTERPOLATION['NEAREST'],
+                               INTERPOLATION['BILINEAR'])),
+               MergeChannels(),
+               ToTensor(),
+               BinarizeTarget()]
 
     if C < 3:
         compose = [Grayscale(1)] + compose

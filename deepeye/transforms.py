@@ -26,6 +26,15 @@ class Resize(transforms.Resize):
             ``PIL.Image.BILINEAR``. Other options are ``PIL.Image.NEAREST``,
             ``PIL.Image.BICUBIC`` and ``PIL.Image.LANCZOS``.
     """
+    def __init__(self, size, interpolation):
+        super().__init__(size, interpolation)
+
+        if isinstance(interpolation, int):
+            interpolation = [interpolation]*4
+
+        if len(interpolation) != 4:
+            raise ValueError('Number of interepolarion methods should '
+                             'be the same as the number of images (4)')
 
     def __call__(self, imgs):
         """
@@ -35,7 +44,8 @@ class Resize(transforms.Resize):
             PIL Image: Rescaled image.
         """
         return tuple(
-            map(lambda x: F.resize(x, self.size, self.interpolation), imgs))
+            map(lambda x, interp:
+                    F.resize(x, self.size, interp), imgs, self.interpolation))
 
 
 class CenterCrop(transforms.CenterCrop):

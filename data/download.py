@@ -81,10 +81,10 @@ def read_data(data_dir, nb_bg_frames=150):
                 int(sample) for sample in f.readline().strip().split(' ')
             ]
 
-            negative_only = not np.asarray(Image.open(
-                                            os.path.join(data_dir, video_type,
+            img = np.asarray(Image.open(os.path.join(data_dir, video_type,
                                                 video_name, 'groundtruth',
-                                                target_frame))).any()
+                                                target_frame)))
+            negative_only = not img.any()
 
             # Ignoring half the frames in the new categories
             if video_type in new_types:
@@ -100,8 +100,17 @@ def read_data(data_dir, nb_bg_frames=150):
                             os.path.join(data_dir, video_type, video_name,
                                          'input', input_frame))))
 
+            # Ignoring frames outside temporal roi
             if frame_nb < roi_start or frame_nb > roi_end:
                 continue
+
+            if video_type in new_types and \
+                np.in1d(
+                    np.unique(img),
+                    np.array((85,170)),
+                    assume_unique=True).all():
+                # Ignoring frames w/o gt available though inside temporal roi
+                    continue
 
         frame_list.append([
             video_type, video_name, input_frame, target_frame, negative_only])

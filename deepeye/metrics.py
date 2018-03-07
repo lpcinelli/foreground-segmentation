@@ -40,7 +40,6 @@ def _sanitize(y_true, y_pred, roi):
             raise ValueError('roi must be a ByteTensor, got {}'.format(
                 type(roi)))
 
-
     return y_true, y_pred, roi
 
 
@@ -60,12 +59,22 @@ def _fn(y_true, y_pred, roi):
     return torch.sum((((y_pred == 0) & (y_true == 1)) * roi).float())
 
 
+def tp_tn_fp_fn(y_true, y_pred, roi=None):
+    y_true, y_pred, roi = _sanitize(y_true, y_pred, roi)
+
+    return _tp(y_true, y_pred, roi), _tn(y_true, y_pred, roi), _fp(
+        y_true, y_pred, roi), _fn(y_true, y_pred, roi)
+
+
 def acc_score(y_true, y_pred, roi=None, eps=1e-12):
     y_true, y_pred, roi = _sanitize(y_true, y_pred, roi)
 
     tn = _tn(y_true, y_pred, roi)
     tp = _tp(y_true, y_pred, roi)
+    return _acc_score(tp, tn, None, None, eps)
 
+
+def _acc_score(tp, tn, fp, fn, eps=1e-12):
     return ((tp + tn) / (roi.float().sum(dim=-1) + eps))
 
 
@@ -74,7 +83,10 @@ def prec_score(y_true, y_pred, roi=None, eps=1e-12):
 
     tp = _tp(y_true, y_pred, roi)
     fp = _fp(y_true, y_pred, roi)
+    return _prec_score(tp, None, fp, None, eps)
 
+
+def _prec_score(tp, tn, fp, fn, eps=1e-12):
     return (tp / (tp + fp + eps))
 
 
@@ -83,7 +95,10 @@ def recall_score(y_true, y_pred, roi=None, eps=1e-12):
 
     tp = _tp(y_true, y_pred, roi)
     fn = _fn(y_true, y_pred, roi)
+    return _recall_score(tp, None, None, fn)
 
+
+def _recall_score(tp, tn, fp, fn, eps=1e-12):
     return (tp / (tp + fn + eps))
 
 
@@ -92,16 +107,23 @@ def f1_score(y_true, y_pred, roi=None, eps=1e-12):
     return fbeta_score(y_true, y_pred, 1, roi, eps)
 
 
+def _f1_score(tp, tn, fp, fn, eps=1e-12):
+    return _fbeta_score(tp, None, fp, fn, 1, eps)
+
+
 def fbeta_score(y_true, y_pred, beta, roi=None, eps=1e-12):
     y_true, y_pred, roi = _sanitize(y_true, y_pred, roi)
-    beta2 = beta**2
 
     tp = _tp(y_true, y_pred, roi)
     fp = _fp(y_true, y_pred, roi)
     fn = _fn(y_true, y_pred, roi)
 
-    return (
-        (1 + beta2) * tp / ((1 + beta2) * tp + beta2 * fn + fp + eps))
+    return _fbeta_score(tp, None, fp, fn, beta, eps)
+
+
+def _fbeta_score(tp, tn, fp, fn, beta, eps=1e-12):
+    beta2 = beta**2
+    return ((1 + beta2) * tp / ((1 + beta2) * tp + beta2 * fn + fp + eps))
 
 
 def false_pos_rate(y_true, y_pred, roi=None, eps=1e-12):
@@ -110,6 +132,10 @@ def false_pos_rate(y_true, y_pred, roi=None, eps=1e-12):
     fp = _fp(y_true, y_pred, roi)
     tn = _tn(y_true, y_pred, roi)
 
+    return _false_pos_rate(None, tn, fp, None, eps)
+
+
+def _false_pos_rate(tp, tn, fp, fn, eps=1e-12):
     return (fp / (fp + tn + eps))
 
 
@@ -119,12 +145,20 @@ def false_neg_rate(y_true, y_pred, roi=None, eps=1e-12):
     fn = _fn(y_true, y_pred, roi)
     tp = _tp(y_true, y_pred, roi)
 
+    return _false_neg_rate(tp, None, None, fn, eps)
+
+
+def _false_neg_rate(tp, tn, fp, fn, eps=1e-12):
     return (fn / (fn + tp + eps))
 
 
 def true_pos_rate(y_true, y_pred, roi=None, eps=1e-12):
     # or sensitivity
     return 1 - false_neg_rate(y_true, y_pred, roi, eps)
+
+
+def _true_pos_rate(tp, tn, fp, fn, eps=1e-12):
+    return 1 - _true_neg_rate(None, tn, fp, fn, eps)
 
 
 def true_neg_rate(y_true, y_pred, roi=None, eps=1e-12):
@@ -134,6 +168,10 @@ def true_neg_rate(y_true, y_pred, roi=None, eps=1e-12):
     fp = _fp(y_true, y_pred, roi)
     tn = _tn(y_true, y_pred, roi)
 
+    return _true_neg_rate(None, tn, fp, None, eps)
+
+
+def _true_neg_rate(tp, tn, fp, fn, eps=1e-12):
     return (tn / (fp + tn + eps))
 
 
@@ -145,6 +183,10 @@ def IoU_score(y_true, y_pred, roi=None, eps=1e-12):
     fp = _fp(y_true, y_pred, roi)
     fn = _fn(y_true, y_pred, roi)
 
+    return _IoU_score(tp, None, fp, fn, eps)
+
+
+def _IoU_score(tp, tn, fp, fn, eps=1e-12):
     return (tp / (tp + fp + fn + eps))
 
 
@@ -158,4 +200,8 @@ def total_error(y_true, y_pred, roi=None, eps=1e-12):
     fp = _fp(y_true, y_pred, roi)
     fn = _fn(y_true, y_pred, roi)
 
+    return _total_error(tp, tn, fp, fn, eps)
+
+
+def _total_error(tp, tn, fp, fn, eps=1e-12):
     return ((fn + fp) / (tp + fp + tn + fn + eps))

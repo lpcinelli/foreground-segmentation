@@ -5,7 +5,9 @@ import torch
 import torch.nn as nn
 
 from .callbacks import Callback, Progbar
-from .utils.generic_utils import AverageMeter
+from .utils.generic_utils import AverageMeter, CMMeter, Meter
+from .metrics import tp_tn_fp_fn
+import pdb
 
 
 class Model(object):
@@ -161,7 +163,9 @@ class Model(object):
         else:
             meters['{}_loss'.format(mode)] = AverageMeter()
             for name in metrics:
-                meters['{}_{}'.format(mode, name)] = AverageMeter()
+                meters['{}_{}'.format(mode, name)] = Meter()
+
+            cm_meter = CMMeter()
 
         if mode == 'train':
             # switch to train mode
@@ -175,7 +179,6 @@ class Model(object):
 
         for batch, (input, target, roi) in enumerate(loader):
             batch_size = input.size(0)
-            nb_pixels = np.prod(input.size())
 
             callback.on_batch_begin(batch, batch_size)
 
@@ -195,14 +198,19 @@ class Model(object):
                 seen += batch_size
             else:
                 loss = self.criterion(output, target_var, roi=roi_var)
-
                 # Updating meters
                 meters['{}_loss'.format(mode)].update(loss.data[0], batch_size)
+
                 output = (torch.sigmoid(output) > self._threshold)
+
+                # Updating the confusion matrix
+                cm_meter.update(
+                    *tp_tn_fp_fn(target.byte(), output, roi=roi.byte()))
+
                 for name, metric in metrics.items():
                     meters['{}_{}'.format(mode, name)].update(
-                        metric(target.byte(), output, roi=roi.byte()),
-                        nb_pixels)
+                        metric(cm_meter.tp, cm_meter.tn, cm_meter.fp,
+                               cm_meter.fn))
 
                 if mode == 'train':
                     # compute gradient and do SGD step

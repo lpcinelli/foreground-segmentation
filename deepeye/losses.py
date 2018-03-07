@@ -7,17 +7,20 @@ class MaskedBinaryCrossEntropy(Module):
     def forward(self, input, target, roi=None):
         if roi is None:
             roi = torch.ones_like(input)
-        return (F.binary_cross_entropy(
-            torch.sigmoid(input), target, reduce=False) * roi).sum() / roi.sum()
+        return (
+            F.binary_cross_entropy(torch.sigmoid(input), target, reduce=False
+                                   ) * roi).sum() / roi.sum()
 
 
-class BinaryCrossEntropy(Module):
+mbce = MaskedBinaryCrossEntropy
+
+
+class BinaryCrossEntropy(torch.nn.BCEWithLogitsLoss):
     def forward(self, input, target, roi=None):
-        if roi is None:
-            roi = torch.ones_like(input)
-        return (F.binary_cross_entropy(torch.sigmoid(input), target)).sum()
+        return super().forward(input, target)
 
-bce = MaskedBinaryCrossEntropy
+
+bce = BinaryCrossEntropy
 
 
 class MaskedHardDiceLoss(Module):
@@ -38,6 +41,7 @@ class MaskedHardDiceLoss(Module):
                 target (tensor): `(N, *)`, same shape as the input
                 roi (tensor): `(N, *)`, same shape as the input
     """
+
     def __init__(self, threshold=0.5, smooth=1, eps=1e-12, per_img=False):
         super().__init__()
         self.threshold = threshold
@@ -59,6 +63,7 @@ class MaskedHardDiceLoss(Module):
         return 1 - ((2 * intersect.sum() + self.smooth) /
                     (union.sum() + self.eps + self.smooth))
 
+
 harddice = MaskedHardDiceLoss
 
 
@@ -78,6 +83,7 @@ class MaskedSoftDiceLoss(Module):
                 target (tensor): `(N, *)`, same shape as the input
                 roi (tensor): `(N, *)`, same shape as the input
     """
+
     def __init__(self, threshold=0.5, smooth=1, eps=1e-12, per_img=False):
         super().__init__()
         self.threshold = threshold
@@ -98,5 +104,6 @@ class MaskedSoftDiceLoss(Module):
 
         return 1 - ((2 * intersect.sum() + self.smooth) /
                     (union.sum() + self.eps + self.smooth))
+
 
 softdice = MaskedSoftDiceLoss

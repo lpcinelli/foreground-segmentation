@@ -116,7 +116,6 @@ class Progbar(Callback):
         # measure elapsed time
         self.batch_time.update(time.time() - self.end)
         self.end = time.time()
-
         if self.batch % self.print_freq == 0:
             msg = []
             if self.mode.startswith('train'):
@@ -129,18 +128,43 @@ class Progbar(Callback):
                     '{0}: [{1}/{2}]\t'.format(
                         titleize(self.mode), self.batch, self.size)
                 ]
-
             msg += ['Time {0.val:.3f} ({0.avg:.3f})  '.format(self.batch_time)]
             msg += ['Data {0.val:.3f} ({0.avg:.3f})  '.format(self.data_time)]
 
             # Add metrics alongsise with the loss
-            msg += [
-                '{0} {1.val:.3f} ({1.avg:.3f})  '.format(
-                    titleize(humanize(name.rsplit('_')[1].replace('-score',''))), meter)
-                        for name, meter in metrics.items()
-            ]
+            msg += [('{0} {1.val:.3f} ({1.avg:.3f})  ' if isinstance(
+                meter, AverageMeter) else '{0} {1.val:.3f} ').format(
+                    titleize(
+                        humanize(name.rsplit('_')[1].replace('-score', ''))),
+                    meter) for name, meter in metrics.items()
+                    if not name.startswith('_')]
 
             print(''.join(msg))
+
+    def on_epoch_end(self, metrics):
+        msg = []
+        if self.mode.startswith('train'):
+            msg += [
+                'Epoch: [{0}][{1}/{2}]  '.format(self.epoch, self.batch,
+                                                 self.size)
+            ]
+        else:
+            msg += [
+                '{0}: [{1}/{2}]\t'.format(
+                    titleize(self.mode), self.batch, self.size)
+            ]
+        msg += ['Time {0.sum:.3f}  '.format(self.batch_time)]
+        msg += ['Data {0.sum:.3f}  '.format(self.data_time)]
+
+        # Add metrics alongsise with the loss
+        msg += [
+            '{0} {1.avg:.3f}  '.format(
+                titleize(humanize(name.rsplit('_')[1].replace('-score', ''))),
+                meter) for name, meter in metrics.items()
+            if not name.startswith('_')
+        ]
+
+        print(''.join(msg))
 
 
 class ModelCheckpoint(Callback):

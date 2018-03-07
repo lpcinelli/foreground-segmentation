@@ -141,9 +141,7 @@ def train(args):
     monitor = 'train_f1'
     if args.val_manifest:
         val_set = datasets.CDNetDataset(
-            args.val_manifest,
-            args.img_dir,
-            training=False)
+            args.val_manifest, args.img_dir, training=False)
         val_loader = torch.utils.data.DataLoader(
             val_set,
             batch_size=args.batch_size,
@@ -156,8 +154,11 @@ def train(args):
         callbacks.Progbar(print_freq=args.print_freq),
         callbacks.ModelCheckpoint(
             args.save, monitor, mode='max', history=history.copy()),
-        callbacks.LearningRateScheduler(partial(
-            adjust_learning_rate, factor=args.lr_factor, every=args.lr_span)),
+        callbacks.LearningRateScheduler(
+            partial(
+                adjust_learning_rate,
+                factor=args.lr_factor,
+                every=args.lr_span)),
     ]
 
     if args.visdom:
@@ -169,13 +170,15 @@ def train(args):
         train_loader,
         args.epochs,
         val_loader=val_loader,
-        metrics={'f1': metrics.f1_score,
-                 'recall': metrics.recall_score,
-                 'prec': metrics.prec_score,
-                 'FNR': metrics.false_neg_rate,
-                 'TPR': metrics.true_pos_rate,
-                 'IoU': metrics.IoU_score,
-                 'total-error': metrics.total_error},
+        metrics={
+            'f1': metrics._f1_score,
+            'recall': metrics._recall_score,
+            'prec': metrics._prec_score,
+            'FNR': metrics._false_neg_rate,
+            'TPR': metrics._true_pos_rate,
+            'IoU': metrics._IoU_score,
+            'total-error': metrics._total_error
+        },
         callback=callbacks.Compose(callback_list),
         start_epoch=args.start_epoch)
 
@@ -185,13 +188,15 @@ def eval(args):
 
     outputs = model.eval_loader(
         loader,
-        metrics={'f1': metrics.f1_score,
-                 'recall': metrics.recall_score,
-                 'prec': metrics.prec_score,
-                 'FNR': metrics.false_neg_rate,
-                 'TPR': metrics.true_pos_rate,
-                 'IoU': metrics.IoU_score,
-                 'total-error': metrics.total_error})
+        metrics={
+            'f1': metrics._f1_score,
+            'recall': metrics._recall_score,
+            'prec': metrics._prec_score,
+            'FNR': metrics._false_neg_rate,
+            'TPR': metrics._true_pos_rate,
+            'IoU': metrics._IoU_score,
+            'total-error': metrics._total_error
+        })
 
     msg = ['==> ']
     msg += [
@@ -236,7 +241,11 @@ if __name__ == '__main__':
         default='data/datafiles',
         help='path to dataset')
     parser.add_argument(
-        '--manifest', type=str, metavar='MANIFEST', help='path to .csv', required=True)
+        '--manifest',
+        type=str,
+        metavar='MANIFEST',
+        help='path to .csv',
+        required=True)
     # Loader
     parser.add_argument(
         '-b',

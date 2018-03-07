@@ -1,23 +1,55 @@
 import numpy as np
 
 
-class AverageMeter(object):
-    """Computes and stores the average and current value"""
+class Meter(object):
+    """ Stores the last value and the cummulative sum
+    """
 
     def __init__(self):
         self.reset()
 
     def reset(self):
         self.val = 0
-        self.avg = 0
         self.sum = 0
-        self.count = 0
+        self.avg = 0
 
     def update(self, val, n=1):
         self.val = val
         self.sum += val * n
+        self.avg = val
+
+
+class AverageMeter(Meter):
+    """Computes and stores the average and current value"""
+
+    def reset(self):
+        super().reset()
+        self.count = 0
+
+    def update(self, val, n=1):
+        super().update(val, n)
         self.count += n
         self.avg = self.sum / self.count
+
+
+class CMMeter(object):
+    """ Confusion matrix meter, i.e., computes TP, TN, FP, and FN globally
+    """
+
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.tp = 0
+        self.tn = 0
+        self.fp = 0
+        self.fn = 0
+
+    def update(self, tp, tn, fp, fn, n=1):
+        self.tp += tp * n
+        self.tn += tn * n
+        self.fp += fp * n
+        self.fn += fn * n
 
 
 class History(AverageMeter):

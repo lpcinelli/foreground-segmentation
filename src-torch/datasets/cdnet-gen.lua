@@ -90,16 +90,16 @@ local function findImages(dir, dstDir)
    -- list of desired video situations
    local videoTypeList={
                            'PTZ',
-                           -- 'badWeather',
-                           -- 'baseline',
-                           -- 'cameraJitter',
-                           -- 'dynamicBackground',
-                           -- 'intermittentObjectMotion',
-                           -- 'lowFramerate',
-                           -- 'nightVideos',
-                           -- 'shadow',
-                           -- 'thermal',
-                           -- 'turbulence'
+                           'badWeather',
+                           'baseline',
+                           'cameraJitter',
+                           'dynamicBackground',
+                           'intermittentObjectMotion',
+                           'lowFramerate',
+                           'nightVideos',
+                           'shadow',
+                           'thermal',
+                           'turbulence'
                         }
    -- list of undesireddisregarded videos
    local list_of_videos = {}
@@ -130,7 +130,7 @@ local function findImages(dir, dstDir)
             f = io.popen('find -L ' .. dir_path .. '/' .. video .. '/input' .. findOptions)
             g = io.popen('find -L ' .. dir_path .. '/' .. video .. '/groundtruth/' .. findOptions)
             local gtLine = g:read('*line')
-            local gtExtension = gtLine:match('%.[A-z]+') -- get file extension type
+            local gtExtension = gtLine:match('%.[A-z]+$') -- get file extension type
             -- paths.mkdir(dstDir, split .. '/' .. videoTypeList[videoType] .. '/' .. video)
             -- Generate a list of all the images and groundtruths
             while true do
@@ -178,7 +178,7 @@ local function findImages(dir, dstDir)
    local imgPathTensor = list2tensor(imgPaths, maxLength)
 
    -- return inputPathTensor, gtPathTensor, bgModelPathTensor, ROIPathTensor
-   return imgPathTensor 
+   return imgPathTensor
 end
 
 function M.exec(opt, cacheFile)

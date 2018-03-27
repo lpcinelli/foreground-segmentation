@@ -4,6 +4,7 @@ arg_utils.py
 Argument treatment utilities.
 '''
 
+import json
 
 def cast_arg(arg):
     '''
@@ -45,5 +46,8 @@ def parse_kwparams(kwlst):
     kwparams = {}
     for param in kwlst:
         k, v = param.split('=')
-        kwparams[k] = v
+        try:
+            kwparams[k] = json.loads(v)
+        except json.JSONDecodeError:
+            kwparams[k] = v
     return kwparams

@@ -306,4 +306,4 @@ $RECYCLE.BIN/
 data/**/*
 .vscode
 models/*
-notebooks/*
+notebooks/**/*

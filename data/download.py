@@ -1,18 +1,35 @@
 import argparse
 import hashlib
 import os
-import tarfile
+import urllib
+from zipfile import ZipFile
 
 import glob2 as glob
 import numpy as np
 import pandas as pd
 from PIL import Image
-
 from tqdm import tqdm
 
-URL = "http://wordpress-jodoin.dmi.usherb.ca/static/dataset/dataset2014.zip"
+URL = "http://jacarini.dinf.usherbrooke.ca/static/dataset/dataset2014.zip"
 MD5 = "d86332547edbc25f4ddbcd49f92413cf"
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
+
+
+class TqdmUpTo(tqdm):
+    """Provides `update_to(n)` which uses `tqdm.update(delta_n)`."""
+
+    def update_to(self, b=1, bsize=1, tsize=None):
+        """
+        b  : int, optional
+            Number of blocks transferred so far [default: 1].
+        bsize  : int, optional
+            Size of each block (in tqdm units) [default: 1].
+        tsize  : int, optional
+            Total size (in tqdm units). If [default: None] remains unchanged.
+        """
+        if tsize is not None:
+            self.total = tsize
+        self.update(b * bsize - self.n)  # will also set self.n = b * bsize
 
 
 def md5file(fname):
@@ -26,12 +43,21 @@ def md5file(fname):
 def download(url, md5sum, target_dir):
     """Download file from url to target_dir, and check md5sum.
     Adapted from PaddlePaddle/DeepSpeech repo"""
-    if not os.path.exists(target_dir): os.makedirs(target_dir)
-    filepath = os.path.join(target_dir, url.split("/")[-1])
+    if not os.path.exists(target_dir):
+        os.makedirs(target_dir)
+
+    fname = url.split("/")[-1]
+    filepath = os.path.join(target_dir, fname)
     if not (os.path.exists(filepath) and md5file(filepath) == md5sum):
-        print("Downloading %s ..." % url)
-        os.system("wget -c " + url + " -P " + target_dir)
-        print("\nMD5 Chesksum %s ..." % filepath)
+        with TqdmUpTo(
+                unit='B',
+                unit_scale=True,
+                miniters=1,
+                desc='Downloading {}...'.format(fname)) as t:
+            urllib.request.urlretrieve(
+                url, filename=filepath, reporthook=t.update_to, data=None)
+
+        print("\nMD5 Chesksum {}...".format(filepath))
         if not md5file(filepath) == md5sum:
             raise RuntimeError("MD5 checksum failed.")
     else:
@@ -39,13 +65,18 @@ def download(url, md5sum, target_dir):
     return filepath
 
 
-def unpack(filepath, target_dir, rm_tar=False):
+def unpack(filepath, target_dir, remove=False):
     """Unpack the file to the target_dir."""
-    print("Unpacking %s ..." % filepath)
-    tar = tarfile.open(filepath)
-    tar.extractall(target_dir)
-    tar.close()
-    if rm_tar == True:
+    if os.path.exists(os.path.join(target_dir, 'dataset')):
+        print("Skip unpacking. Data already extracted at %s." % os.path.join(
+            target_dir, 'dataset'))
+        return
+
+    print("Unpacking {}...".format(filepath))
+    with ZipFile(filepath) as fzip:
+        fzip.extractall(target_dir)
+
+    if remove:
         os.remove(filepath)
 
 
@@ -81,9 +112,10 @@ def read_data(data_dir, nb_bg_frames=150):
                 int(sample) for sample in f.readline().strip().split(' ')
             ]
 
-            img = np.asarray(Image.open(os.path.join(data_dir, video_type,
-                                                video_name, 'groundtruth',
-                                                target_frame)))
+            img = np.asarray(
+                Image.open(
+                    os.path.join(data_dir, video_type, video_name,
+                                 'groundtruth', target_frame)))
             negative_only = not img.any()
 
             # Ignoring half the frames in the new categories
@@ -110,10 +142,10 @@ def read_data(data_dir, nb_bg_frames=150):
                     np.array((85,170)),
                     assume_unique=True).all():
                 # Ignoring frames w/o gt available though inside temporal roi
-                    continue
+                continue
 
-        frame_list.append([
-            video_type, video_name, input_frame, target_frame, negative_only])
+        frame_list.append(
+            [video_type, video_name, input_frame, target_frame, negative_only])
 
     bg_groups = {
         k: np.median(np.stack(v, axis=0).astype(np.float), axis=0)
@@ -122,8 +154,10 @@ def read_data(data_dir, nb_bg_frames=150):
 
     df = pd.DataFrame(
         frame_list,
-        columns=['video_type','video_name', 'input_frame',
-            'target_frame', 'negative_only'])
+        columns=[
+            'video_type', 'video_name', 'input_frame', 'target_frame',
+            'negative_only'
+        ])
 
     print('Saving bg models... ', end='')
     for k, v in bg_groups.items():
@@ -162,7 +196,7 @@ def check_roi(video_path):
         Image.fromarray(mask).save(img_path)
 
 
-def create_manifest(data_dir, manifest_path, rate):
+def create_manifest(data_dir, manifest_prefix, rate):
     """Create a manifest json file summarizing the data set, with each line
     containing the meta data (i.e. video type, video name, input frame, and
     target frame) of each video frame in the data set.
@@ -171,23 +205,18 @@ def create_manifest(data_dir, manifest_path, rate):
     data_df = read_data(data_dir)
     train, val = split(data_df, rate)
 
-    train.to_csv('{}.train'.format(manifest_path), index=False)
-    val.to_csv('{}.val'.format(manifest_path), index=False)
+    train.to_csv('{}.train'.format(manifest_prefix), index=False)
+    val.to_csv('{}.val'.format(manifest_prefix), index=False)
 
 
-def prepare_dataset(url, md5sum, target_dir, manifest_path, rate):
+def prepare_dataset(url, md5sum, target_dir, manifest_prefix, rate):
     """Download, unpack and create summmary manifest file.
     """
-    if not os.path.exists(os.path.join(target_dir, "dataset2014")):
-        # download
-        filepath = download(url, md5sum, target_dir)
-        # unpack
-        unpack(filepath, target_dir)
-    else:
-        print("Skip downloading and unpacking. Data already exists in %s." %
-              target_dir)
+    filepath = download(url, md5sum, target_dir)
+    unpack(filepath, target_dir)
+
     # create manifest csv file
-    create_manifest(target_dir, manifest_path, rate)
+    create_manifest(os.path.join(target_dir, "dataset"), manifest_prefix, rate)
 
 
 def split(data, rate):
@@ -232,5 +261,5 @@ if __name__ == '__main__':
         url=URL,
         md5sum=MD5,
         target_dir=args.target_dir,
-        manifest_path=args.manifest_prefix,
+        manifest_prefix=args.manifest_prefix,
         rate=args.rate)

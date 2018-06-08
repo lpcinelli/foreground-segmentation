@@ -178,7 +178,7 @@ local function findImages(dir, dstDir)
    local imgPathTensor = list2tensor(imgPaths, maxLength)
 
    -- return inputPathTensor, gtPathTensor, bgModelPathTensor, ROIPathTensor
-   return imgPathTensor 
+   return imgPathTensor
 end
 
 function M.exec(opt, cacheFile)

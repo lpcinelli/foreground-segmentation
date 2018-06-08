@@ -227,6 +227,13 @@ class RoiCrop(object):
         Returns:
             Tensor: Cropped image.
         """
+        # roi = pics[-1]
+        # background = Image.new('L', roi.size)
+
+        # return tuple(map(lambda img:
+        #     Image.composite(img, background.convert(img.mode),
+        #                     roi.convert(img.mode)), pics))
+
         input_, target, roi = pics
         return (input_ * roi, target * roi, roi)
 
@@ -239,7 +246,10 @@ class BinarizeTarget(object):
 
     def __call__(self, pics):
 
-        input_, target, roi = pics
+        input_, bg_model, target, roi = pics
+        target = Image.fromarray(
+                    (np.array(target.convert('L')) == 255).astype(
+                        np.uint8)*255)
         # target = (target > 0.67).float()
-        target = (target > 0.83).float()
-        return (input_, target, roi)
+        # target = (target > 0.83).float()
+        return (input_, bg_model, target, roi)

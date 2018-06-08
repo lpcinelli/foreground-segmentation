@@ -3,13 +3,15 @@ import torch.nn.functional as F
 from torch.nn.modules.module import Module
 
 
-class MaskedBinaryCrossEntropy(Module):
+class MaskedBinaryCrossEntropy(torch.nn.BCEWithLogitsLoss):
     def forward(self, input, target, roi=None):
         if roi is None:
             roi = torch.ones_like(input)
-        return (
-            F.binary_cross_entropy(torch.sigmoid(input), target, reduce=False
-                                   ) * roi).sum() / roi.sum()
+        return (F.binary_cross_entropy_with_logits(
+            input, target, reduce=False) * roi).sum() / roi.sum()
+        # return (
+        #     F.binary_cross_entropy(torch.sigmoid(input), target, reduce=False
+        #                            ) * roi).sum() / roi.sum()
 
 
 mbce = MaskedBinaryCrossEntropy

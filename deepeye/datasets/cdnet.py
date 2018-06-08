@@ -150,17 +150,18 @@ def transforms(input_shape, training=False, augmentation=False):
 
     C, H, W = input_shape
 
-    compose = [
-        Resize((H, W), INTERPOLATION['BILINEAR']),
-        MergeChannels(),
-        ToTensor(),
-        RoiCrop(),
-        BinarizeTarget()
-    ]
+    compose = [BinarizeTarget()]
 
     if C < 3:
-        compose = [Grayscale(1)] + compose
+        compose = compose + [Grayscale(1)]
+
+    compose = compose + [
+        Resize((H, W), (INTERPOLATION['BICUBIC'], INTERPOLATION['BICUBIC'],
+                        INTERPOLATION['NEAREST'], INTERPOLATION['NEAREST'])),
+    ]
     if augmentation is True:
-        compose = [RandomHorizontalFlip()] + compose
+        compose = compose + [RandomHorizontalFlip()]
+
+    compose = compose + [MergeChannels(), ToTensor(), RoiCrop()]
 
     return vision_transforms.Compose(compose)

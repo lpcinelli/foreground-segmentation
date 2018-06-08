@@ -8,10 +8,11 @@ import torch.utils.model_zoo as model_zoo
 from ..utils.generic_utils import rgb2gray
 
 __all__ = [
-    'ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152'
+    'resnet', 'resnet18', 'resnet20', 'resnet32', 'resnet34', 'resnet50',
+    'resnet101', 'resnet152'
 ]
 
-UPSAMPLING_MODES = ['UpSample', 'Deconv']
+UPSAMPLING_MODES = ['upsample', 'deconv', 'deconvshallow', 'decodeshallow']
 
 model_urls = {
     'resnet18': 'https://download.pytorch.org/models/resnet18-5c106cde.pth',
@@ -244,26 +245,57 @@ class ResNet(nn.Module):
                  dilation_growth=2,
                  return_indices=False,
                  return_sizes=False,
-                 skip_connection=False):
+                 skip_connection=False,
+                 preblock=None,
+                 inplanes=64):
         super(ResNet, self).__init__()
 
         C, _, _ = input_shape
-        self.inplanes = 64
+        self.inplanes = inplanes
         self.return_indices = return_indices
         self.return_sizes = return_sizes
         self.skip_connection = skip_connection
         self.nb_blocks = len(layers)
+        std_block = block
 
-        self.conv1 = nn.Conv2d(
-            C, 64, kernel_size=7, stride=2, padding=3, bias=False)
-        self.bn1 = nn.BatchNorm2d(64)
+        if preblock is None:
+            self.conv1 = nn.Conv2d(
+                C,
+                self.inplanes,
+                kernel_size=7,
+                stride=2,
+                padding=3,
+                bias=False)
+            maxpool = nn.MaxPool2d(
+                kernel_size=3,
+                stride=2,
+                padding=1,
+                return_indices=True,
+                ceil_mode=True)
+        else:
+            # How should preblock be parsed:
+            # {conv:[inplanes, kernel_size, stride, padding],
+            #  pool:[kernel_size, stride, padding]}
+
+            assert('conv' in preblock and len (preblock['conv']) is 4),\
+                '\'conv\' key in preblock settings should have '\
+                '[inplanes, kernel_size, stride, padding] as params'
+            assert('pool' in preblock and
+                    (preblock['pool'] is None or len (preblock['pool']) is 3)),\
+                '\'pool\' key in preblock settings should have '\
+                '[kernel_size, stride, padding] as params or be None'
+
+            self.inplanes = preblock['conv'][0]
+            self.conv1 = nn.Conv2d(C, *preblock['conv'], bias=False)
+            if preblock['pool'] is not None:
+                maxpool = nn.MaxPool2d(
+                    *preblock['pool'], return_indices=True, ceil_mode=True)
+            else:
+                maxpool = lambda x: (x, 0)
+
+        self.bn1 = nn.BatchNorm2d(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
-        self.maxpool = nn.MaxPool2d(
-            kernel_size=3,
-            stride=2,
-            padding=1,
-            return_indices=True,
-            ceil_mode=True)
+        self.maxpool = maxpool
 
         for i, layer in enumerate(layers):
 
@@ -272,16 +304,16 @@ class ResNet(nn.Module):
                 channels = 2**(6 + i)
                 stride = 2 if i > 0 else 1
                 dilate = dilation / dilation_growth**(self.nb_blocks - (i + 1))
-            elif isinstance(layer, tuple) and isinstance(layer[1], dict):
+            elif isinstance(layer, list) and isinstance(layer[1], dict):
                 blocks = layer[0]
                 channels = layer[1].get('depth', 2**(6 + i))
                 stride = layer[1].get('stride', 2 if i > 0 else 1)
-                block = layer[1].get('block', block)
+                block = layer[1].get('block', std_block)
                 dilate = layer[1].get('dilation', dilation / dilation_growth**
                                       (self.nb_blocks - (i + 1)))
             else:
                 raise ValueError('Elements of {} should either be int '.format(
-                    layers) + 'or tuple of (int, dict)')
+                    layers) + 'or list of [int, dict]')
 
             self.__dict__['_modules']['layer{}'.format(
                 i + 1)] = self._make_down_layer(
@@ -373,11 +405,18 @@ class ResNetUpSample(nn.Module):
         to recover the original size.
     """
 
-    def __init__(self, input_shape, block, layers, num_classes=1, dilation=1):
+    def __init__(self, input_shape, block, layers, num_classes=1, **kwargs):
+        #  dilation=1,
+        #  inplanes=64):
         super(ResNetUpSample, self).__init__()
 
         self.base = ResNet(
-            input_shape, block, layers, num_classes=1, dilation=dilation)
+            # input_shape, block, layers, num_classes=1, dilation=dilation, inplanes=inplanes)
+            input_shape,
+            block,
+            layers,
+            num_classes=num_classes,
+            **kwargs)
         last_layer = [
             obj for obj in self.base.modules() if isinstance(obj, nn.Conv2d)
         ][-1]
@@ -424,11 +463,11 @@ class ResNetDeconv(nn.Module):
                  dilation_growth=2,
                  block_up=None,
                  layers_up=None,
-                 skip_connection=False):
+                 skip_connection=False,
+                 inplanes=None,
+                 preblock=None):
         super(ResNetDeconv, self).__init__()
 
-        # block_up = kwargs.pop('block_up', None)
-        # layers_up = kwargs.pop('layers_up', layers[::-1])
         self.skip_connection = skip_connection
 
         if block_up is None:
@@ -445,12 +484,13 @@ class ResNetDeconv(nn.Module):
             input_shape,
             block,
             layers,
-            num_classes=1,
+            num_classes=num_classes,
             dilation=dilation,
             dilation_growth=dilation_growth,
             return_indices=True,
             return_sizes=True,
-            skip_connection=skip_connection)
+            skip_connection=skip_connection,
+            preblock=preblock)
 
         last_layer = [
             obj for obj in self.base.modules() if isinstance(obj, nn.Conv2d)
@@ -464,7 +504,7 @@ class ResNetDeconv(nn.Module):
                 channels = 2**(6 + (len(layers_up) - 1) - i)
                 stride = 2 if i < (len(layers_up) - 1) else 1
                 dilate = dilation / dilation_growth**i
-            elif isinstance(layer, tuple) and isinstance(layer[1], dict):
+            elif isinstance(layer, list) and isinstance(layer[1], dict):
                 blocks = layer[0]
                 channels = layer[1].get('depth', 2**(6 + i))
                 stride = layer[1].get('stride', 2
@@ -474,7 +514,7 @@ class ResNetDeconv(nn.Module):
                                       dilation / dilation_growth**i)
             else:
                 raise ValueError('Elements of {} should either be int '.format(
-                    layers) + 'or tuple of (int, dict)')
+                    layers) + 'or list of [int, dict]')
 
             outplanes = 64 if i == (len(layers_up) - 1) else None
 
@@ -487,10 +527,27 @@ class ResNetDeconv(nn.Module):
                     outplanes=outplanes).apply(
                         partial(self._nostride_dilate, dilate=dilate))
 
-        self.unpool = nn.MaxUnpool2d(
-            kernel_size=(3, 3), stride=(2, 2), padding=1)
-        self.deconv = nn.ConvTranspose2d(
-            self.inplanes, 2, kernel_size=7, stride=2, padding=3, bias=False)
+        # this deconv/unpool should be condicioned to conv1 (preblock)
+        # in ResNet which is now configurable
+        if preblock is None:
+            self.unpool = nn.MaxUnpool2d(
+                kernel_size=(3, 3), stride=(2, 2), padding=1)
+            self.deconv = nn.ConvTranspose2d(
+                self.inplanes,
+                2,
+                kernel_size=7,
+                stride=2,
+                padding=3,
+                bias=False)
+        else:
+            if preblock['pool'] is None:
+                self.unpool = lambda x, pool_idx, output_size: x
+            else:
+                self.unpool = nn.MaxUnpool2d(*preblock['pool'])
+
+            self.deconv = nn.ConvTranspose2d(
+                self.inplanes, 2, *preblock['conv'][1:], bias=False)
+
         self.bn = nn.BatchNorm2d(2)
         self.relu = nn.ReLU(inplace=True)
         self.classifier = nn.Conv2d(2, num_classes, kernel_size=1, padding=0)
@@ -547,7 +604,7 @@ class ResNetDeconv(nn.Module):
                     m.padding = (min_dilate, min_dilate)
 
     def forward(self, x):
-        orig_size = x.size()[-2:]
+        orig_size = x.size()
 
         # Extracting the features
         features, pool_idx, size = self.base(x)
@@ -559,9 +616,6 @@ class ResNetDeconv(nn.Module):
             for i in range(1, self.nb_blocks):
                 x = self.__dict__['_modules']['layer{}'.format(i + 1)](
                     x + features[-(i + 1)])
-                print(features[-(i + 1)].size())
-                print(x.size())
-                print()
         else:
             for i in range(1, self.nb_blocks):
                 x = self.__dict__['_modules']['layer{}'.format(i + 1)](x)
@@ -569,6 +623,8 @@ class ResNetDeconv(nn.Module):
         x = F.upsample(x, size=size[-1][-2:], mode='bilinear')
         x = self.unpool(x, pool_idx, output_size=size[-2])
 
+        # this deconv should be condicioned to conv1 (preblock) in ResNet
+        # which is now configurable
         x = self.deconv(x)
         x = self.bn(x)
         x = self.relu(x)
@@ -580,10 +636,273 @@ class ResNetDeconv(nn.Module):
         return x
 
 
+class ResNetDeconvShallow(nn.Module):
+    """ Upsampled variant of ResNet
+        This is a simpler variant which does not rely on complex
+        reconstruction methods, instead it employs a naive
+        interpolation (nearest neighbor/bilinear) at the very end
+        to recover the original size.
+    """
+
+    def __init__(self,
+                 input_shape,
+                 block,
+                 layers,
+                 num_classes=1,
+                 lin_recons=False,
+                 **kwargs):
+        super(ResNetDeconvShallow, self).__init__()
+
+        self.base = ResNet(
+            input_shape, block, layers, num_classes=num_classes, **kwargs)
+        last_layer = [
+            obj for obj in self.base.modules() if isinstance(obj, nn.Conv2d)
+        ][-1]
+
+        nb_channels = last_layer.out_channels
+
+        conv_block = [
+            nn.Conv2d(nb_channels, 2 * nb_channels, kernel_size=1, padding=0),
+            nn.BatchNorm2d(2 * nb_channels),
+        ]
+        deconv_block = [
+            nn.ConvTranspose2d(
+                2 * nb_channels,
+                nb_channels,
+                kernel_size=3,
+                stride=2,
+                padding=1,
+                output_padding=1),
+            nn.BatchNorm2d(nb_channels),
+        ]
+
+        if lin_recons is False:
+            conv_block.append(nn.ReLU(inplace=True))
+            deconv_block.append(nn.ReLU(inplace=True))
+
+        self.conv1 = nn.Sequential(*conv_block)
+        self.deconv1 = nn.Sequential(*deconv_block)
+
+        self.classifier = nn.ConvTranspose2d(
+            nb_channels,
+            num_classes,
+            kernel_size=3,
+            stride=2,
+            padding=1,
+            output_padding=1)
+
+    def forward(self, x):
+        orig_size = x.size()
+
+        # Extracting the features
+        x = self.base(x)[0][0]
+
+        # (Mid)classifier (FC)
+        x = self.conv1(x)
+
+        # Reconstruct belief map
+        x = self.deconv1(x)
+        x = self.classifier(x)
+        x = F.upsample(x, size=orig_size[-2:], mode='bilinear')
+
+        return x
+
+
+class ResNetDecodeShallow(nn.Module):
+    """ Upsampled variant of ResNet
+        This is a simpler variant which does not rely on complex
+        reconstruction methods, instead it employs a naive
+        interpolation (nearest neighbor/bilinear) at the very end
+        to recover the original size.
+    """
+
+    def __init__(self,
+                 input_shape,
+                 block,
+                 layers,
+                 num_classes=1,
+                 dilation=1,
+                 upsampling='bilinear',
+                 preblock=None):
+        super(ResNetShallowDecoder, self).__init__()
+
+        _, H, W = input_shape
+        self.upsampling = upsampling
+        self.base = ResNet(
+            input_shape,
+            block,
+            layers,
+            num_classes=1,
+            dilation=dilation,
+            preblock=preblock)
+        last_layer = [
+            obj for obj in self.base.modules() if isinstance(obj, nn.Conv2d)
+        ][-1]
+
+        self.inplanes = last_layer.out_channels
+
+        self.decoder = self._make_decoder(blocks=2)
+        self.classifier = nn.Sequential(
+            nn.Conv2d(self.inplanes, num_classes, kernel_size=1, padding=0))
+
+    def _make_decoder(self, blocks):
+        def _decoder_layer(inplane, outplane, scale_factor, mode):
+            return nn.Sequential(
+                nn.Upsample(scale_factor=scale_factor, mode=mode),
+                nn.Conv2d(
+                    inplane, outplane, kernel_size=3, padding=1, bias=False),
+                nn.BatchNorm2d(outplane),
+                nn.ReLU(inplace=True))
+
+        layers = []
+        for i in range(blocks):
+            layers.append(
+                _decoder_layer(
+                    self.inplanes,
+                    self.inplanes // 2,
+                    scale_factor=2,
+                    mode=self.upsampling))
+            self.inplanes //= 2
+        return nn.Sequential(*layers)
+
+    def forward(self, x):
+        orig_size = x.size()
+
+        # Extracting the features
+        x = self.base(x)[0][0]
+
+        # Reconstruct image
+        x = self.decoder(x)
+
+        # Projecting to belief map
+        x = self.classifier(x)
+
+        x = F.upsample(x, size=orig_size[-2:], mode=self.upsampling)
+
+        return x
+
+
+# def linknet(pretrained=False, **kwargs):
+#     input_shape = kwargs.pop('input_shape', None)
+#     dilation = kwargs.pop('dilation', 1)
+#     if not input_shape:
+#         raise ValueError('input_shape is required')
+#     if input_shape[1:] != (224, 224):
+#         raise NotImplementedError
+#     if up_mode not in UPSAMPLING_MODES:
+#         raise ValueError(
+#             'Incorrect reconstruction option ({}). Available options are {}'\
+#             .format(up_mode, ", ".join(x for x in UPSAMPLING_MODES)))
+
+#     model = ResNetDeconv(
+#         input_shape,
+#         BasicBlock,
+#         [2, 2, 2, 2],
+#         block_up=BottleneckUp,
+#         # decoder=[(nb of block_up per block, block stride), ...]
+#         decoder=[(1, 1), (1, 2), (1, 2), (1, 2)],
+#         dilation=dilation,
+#         skip_connection=True)
+
+#     if pretrained:
+#         _load_weights(model.base.load_state_dict, 'resnet18', C)
+#     return model
+
 MODELS = {
-    k: v
+    k.lower(): v
     for k, v in globals().items() if k.startswith('ResNet') and len(k) > 6
 }
+
+
+def resnet(**kwargs):
+    """Constructs a generic ResNet model.
+    """
+    input_shape = kwargs.pop('input_shape', None)
+    if not input_shape:
+        raise ValueError('input_shape is required')
+
+    up_mode = kwargs.pop('up_mode', 'None').lower()
+
+    if up_mode not in UPSAMPLING_MODES:
+        raise ValueError(
+            'Incorrect reconstruction option ({}). Available options are {}'\
+            .format(up_mode, ", ".join(x for x in UPSAMPLING_MODES)))
+
+    layers = kwargs.pop('layers', None)
+    if layers is None:
+        raise ValueError(
+            'layers should be a list with the number of layers per block '\
+            'and (optionally) other layer configurations')
+    block_type = eval(kwargs.pop('block_type', 'BasicBlock'))
+
+    model = MODELS[''.join(['resnet', up_mode])](input_shape, block_type,
+                                                 layers, **kwargs)
+    return model
+
+
+def resnet20(**kwargs):
+    """Constructs a CIFAR10 ResNet-20 model.
+    """
+    input_shape = kwargs.pop('input_shape', None)
+    if not input_shape:
+        raise ValueError('input_shape is required')
+
+    up_mode = kwargs.pop('up_mode', 'None').lower()
+    if up_mode not in UPSAMPLING_MODES:
+        raise ValueError(
+            'Incorrect reconstruction option ({}). Available options are {}'\
+            .format(up_mode, ", ".join(x for x in UPSAMPLING_MODES)))
+
+    layers = [[3, {
+        'depth': 16,
+        'stride': 1
+    }], [3, {
+        'depth': 32,
+        'stride': 2
+    }], [3, {
+        'depth': 64,
+        'stride': 2
+    }]]
+
+    preblock = {'conv': [16, 3, 1, 1], 'pool': None}
+
+    model = MODELS[''.join(['resnet', up_mode])](
+        input_shape, BasicBlock, layers, preblock=preblock, **kwargs)
+
+    return model
+
+
+def resnet32(**kwargs):
+    """Constructs a CIFAR10 ResNet-32 model.
+    """
+    input_shape = kwargs.pop('input_shape', None)
+    if not input_shape:
+        raise ValueError('input_shape is required')
+
+    up_mode = kwargs.pop('up_mode', 'None').lower()
+    if up_mode not in UPSAMPLING_MODES:
+        raise ValueError(
+            'Incorrect reconstruction option ({}). Available options are {}'\
+            .format(up_mode, ", ".join(x for x in UPSAMPLING_MODES)))
+
+    layers = [[5, {
+        'depth': 16,
+        'stride': 1
+    }], [5, {
+        'depth': 32,
+        'stride': 2
+    }], [5, {
+        'depth': 64,
+        'stride': 2
+    }]]
+
+    preblock = {'conv': [16, 3, 1, 1], 'pool': None}
+
+    model = MODELS[''.join(['resnet', up_mode])](
+        input_shape, BasicBlock, layers, preblock=preblock, **kwargs)
+
+    return model
+
 
 def resnet18(pretrained=False, **kwargs):
     """Constructs a ResNet-18 model.
@@ -595,13 +914,13 @@ def resnet18(pretrained=False, **kwargs):
     if not input_shape:
         raise ValueError('input_shape is required')
 
-    up_mode = kwargs.pop('up_mode', None)
+    up_mode = kwargs.pop('up_mode', 'None').lower()
     if up_mode not in UPSAMPLING_MODES:
         raise ValueError(
             'Incorrect reconstruction option ({}). Available options are {}'\
             .format(up_mode, ", ".join(x for x in UPSAMPLING_MODES)))
 
-    model = MODELS[''.join(['ResNet', up_mode])](input_shape, BasicBlock,
+    model = MODELS[''.join(['resnet', up_mode])](input_shape, BasicBlock,
                                                  [2, 2, 2, 2], **kwargs)
 
     if pretrained:
@@ -619,13 +938,13 @@ def resnet34(pretrained=False, **kwargs):
     if not input_shape:
         raise ValueError('input_shape is required')
 
-    up_mode = kwargs.pop('up_mode', None)
+    up_mode = kwargs.pop('up_mode', 'None').lower()
     if up_mode not in UPSAMPLING_MODES:
         raise ValueError(
             'Incorrect reconstruction option ({}). Available options are {}'\
             .format(up_mode, ", ".join(x for x in UPSAMPLING_MODES)))
 
-    model = MODELS[''.join(['ResNet', up_mode])](input_shape, BasicBlock,
+    model = MODELS[''.join(['resnet', up_mode])](input_shape, BasicBlock,
                                                  [3, 4, 6, 3], **kwargs)
 
     if pretrained:
@@ -643,13 +962,13 @@ def resnet50(pretrained=False, **kwargs):
     if not input_shape:
         raise ValueError('input_shape is required')
 
-    up_mode = kwargs.pop('up_mode', None)
+    up_mode = kwargs.pop('up_mode', 'None').lower()
     if up_mode not in UPSAMPLING_MODES:
         raise ValueError(
             'Incorrect reconstruction option ({}). Available options are {}'\
             .format(up_mode, ", ".join(x for x in UPSAMPLING_MODES)))
 
-    model = MODELS[''.join(['ResNet', up_mode])](input_shape, Bottleneck,
+    model = MODELS[''.join(['resnet', up_mode])](input_shape, Bottleneck,
                                                  [3, 4, 6, 3], **kwargs)
 
     if pretrained:
@@ -667,13 +986,13 @@ def resnet101(pretrained=False, **kwargs):
     if not input_shape:
         raise ValueError('input_shape is required')
 
-    up_mode = kwargs.pop('up_mode', None)
+    up_mode = kwargs.pop('up_mode', 'None').lower()
     if up_mode not in UPSAMPLING_MODES:
         raise ValueError(
             'Incorrect reconstruction option ({}). Available options are {}'\
             .format(up_mode, ", ".join(x for x in UPSAMPLING_MODES)))
 
-    model = MODELS[''.join(['ResNet', up_mode])](input_shape, Bottleneck,
+    model = MODELS[''.join(['resnet', up_mode])](input_shape, Bottleneck,
                                                  [3, 4, 23, 3], **kwargs)
     if pretrained:
         _load_weights(model.base.load_state_dict, 'resnet101', input_shape[0])
@@ -690,13 +1009,13 @@ def resnet152(pretrained=False, **kwargs):
     if not input_shape:
         raise ValueError('input_shape is required')
 
-    up_mode = kwargs.pop('up_mode', None)
+    up_mode = kwargs.pop('up_mode', 'None').lower()
     if up_mode not in UPSAMPLING_MODES:
         raise ValueError(
             'Incorrect reconstruction option ({}). Available options are {}'\
             .format(up_mode, ", ".join(x for x in UPSAMPLING_MODES)))
 
-    model = MODELS[''.join(['ResNet', up_mode])](input_shape, Bottleneck,
+    model = MODELS[''.join(['resnet', up_mode])](input_shape, Bottleneck,
                                                  [3, 8, 36, 3], **kwargs)
 
     if pretrained:

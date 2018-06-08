@@ -125,7 +125,7 @@ class Progbar(Callback):
                 ]
             else:
                 msg += [
-                    '{0}: [{1}/{2}]\t'.format(
+                    '{0}: [{1}/{2}]  '.format(
                         titleize(self.mode), self.batch, self.size)
                 ]
             msg += ['Time {0.val:.3f} ({0.avg:.3f})  '.format(self.batch_time)]
@@ -140,9 +140,11 @@ class Progbar(Callback):
                     if not name.startswith('_')]
 
             print(''.join(msg))
+            self.metrics = metrics
 
-    def on_epoch_end(self, metrics):
+    def on_step_end(self):
         msg = []
+
         if self.mode.startswith('train'):
             msg += [
                 'Epoch: [{0}][{1}/{2}]  '.format(self.epoch, self.batch,
@@ -150,7 +152,7 @@ class Progbar(Callback):
             ]
         else:
             msg += [
-                '{0}: [{1}/{2}]\t'.format(
+                '{0}: [{1}/{2}]  '.format(
                     titleize(self.mode), self.batch, self.size)
             ]
         msg += ['Time {0.sum:.3f}  '.format(self.batch_time)]
@@ -160,7 +162,7 @@ class Progbar(Callback):
         msg += [
             '{0} {1.avg:.3f}  '.format(
                 titleize(humanize(name.rsplit('_')[1].replace('-score', ''))),
-                meter) for name, meter in metrics.items()
+                meter) for name, meter in self.metrics.items()
             if not name.startswith('_')
         ]
 

@@ -153,7 +153,7 @@ class Model(object):
                      callback,
                      metrics={},
                      mode='train',
-                     async=True):
+                     non_blocking=True):
 
         meters = OrderedDict()
         if mode == 'predict':
@@ -179,27 +179,30 @@ class Model(object):
 
         for batch, (input, target, roi) in enumerate(loader):
             batch_size = input.size(0)
-
             callback.on_batch_begin(batch, batch_size)
 
-            input_var = torch.autograd.Variable(input, volatile=volatile)
+            input.requires_grad_(True)
 
             if mode != 'predict':
                 if self.cuda:
-                    target = target.cuda(async=async)
-                    roi = roi.cuda(async=async)
-                target_var = torch.autograd.Variable(target, volatile=volatile)
-                roi_var = torch.autograd.Variable(roi, volatile=volatile)
+                    target = target.cuda(non_blocking=non_blocking)
+                    roi = roi.cuda(non_blocking=non_blocking)
+                target.requires_grad_(True)
+                roi.requires_grad_(True)
+
+            torch.set_grad_enabled(not volatile)
+
             # Compute output
-            output = self.arch(input_var)
+            output = self.arch(input)
             if mode == 'predict':
                 outputs[seen:seen + batch_size, ...] =\
                     output.data.cpu().numpy()
                 seen += batch_size
             else:
-                loss = self.criterion(output, target_var, roi=roi_var)
+                loss = self.criterion(output, target, roi=roi)
                 # Updating meters
-                meters['{}_loss'.format(mode)].update(loss.data[0], batch_size)
+                meters['{}_loss'.format(mode)].update(loss.data.item(),
+                                                      batch_size)
 
                 output = (torch.sigmoid(output) > self._threshold)
 

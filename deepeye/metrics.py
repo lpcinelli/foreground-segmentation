@@ -7,38 +7,32 @@ import torch
 
 
 def _sanitize(y_true, y_pred, roi):
-    if type(y_pred) == torch.autograd.Variable:
-        y_pred = y_pred.data
+    y_pred = y_pred.data
+    y_true = y_true.data
 
     # Flatten
     y_pred = y_pred.view(y_pred.shape[0], -1)
-
-    if type(y_pred) not in [torch.ByteTensor, torch.cuda.ByteTensor]:
-        raise ValueError('y_pred must be a ByteTensor, got {}'.format(
-            type(y_pred)))
-
-    if type(y_true) == torch.autograd.Variable:
-        y_true = y_true.data
-
-    # Flatten
     y_true = y_true.view(y_true.shape[0], -1)
 
-    if type(y_true) not in [torch.ByteTensor, torch.cuda.ByteTensor]:
-        raise ValueError('y_true must be a ByteTensor, got {}'.format(
-            type(y_true)))
+    if y_pred.dtype is not torch.uint8:
+        raise ValueError('y_pred must be torch.uint8, got {}'.format(
+            y_pred.dtype))
+
+    if y_true.dtype is not torch.uint8:
+        raise ValueError('y_true must be torch.uint8, got {}'.format(
+            y_true.dtype))
 
     if roi is None:
         roi = torch.ones_like(y_pred)
     else:
-        if type(roi) == torch.autograd.Variable:
-            roi = roi.data
+        roi = roi.data
 
         # Flatten
         roi = roi.view(roi.shape[0], -1)
 
-        if type(roi) not in [torch.ByteTensor, torch.cuda.ByteTensor]:
-            raise ValueError('roi must be a ByteTensor, got {}'.format(
-                type(roi)))
+        if roi.dtype is not torch.uint8:
+            raise ValueError('roi must be torch.uint8, got {}'.format(
+                roi.dtype))
 
     return y_true, y_pred, roi
 

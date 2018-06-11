@@ -26,7 +26,7 @@ In this preliminary work, instead of a entire reference video, we use a single s
 ### VDAO
 
 The idea is now use it on the [VDAO](http://www02.smt.ufrj.br/~tvdigital/database), a video database containing annotated videos in a cluttered industrial environment, in which the videos were captured using a camera on a moving platform.
-You can have a bunch of useful tools to play with VDAO database in the [VDAO_Access Project].(https://github.com/rafaelpadilla/DeepLearning-VDAO/tree/master/VDAO_Access).
+You can have a bunch of useful tools to play with VDAO database in the [VDAO_Access Project](https://github.com/rafaelpadilla/DeepLearning-VDAO/tree/master/VDAO_Access).
 
 ## Downloading the dataset
 Once you have installed Python you can just prompt:

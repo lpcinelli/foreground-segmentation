@@ -7,7 +7,6 @@ import torch.nn as nn
 from .callbacks import Callback, Progbar
 from .utils.generic_utils import AverageMeter, CMMeter, Meter
 from .metrics import tp_tn_fp_fn
-import pdb
 
 
 class Model(object):

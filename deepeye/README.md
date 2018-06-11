@@ -1,21 +1,9 @@
-# Planet: Understanding the Amazon from Space
-Use satellite data to track the human footprint in the Amazon rainforest
+# Foreground Segmentation for Anomaly Detection in Surveillance Videos
 
 ## Downloading the dataset
-Once you have installed Python, joined to Kaggle and verified your account, you can just prompt:
+Once you have installed Python you can just prompt:
 ```bash
-$ cd data; sh download.sh [--tif] [--jpg] [--no-sample]
-```
-where:
-* `--tif`: if set, will download `*-tif.tar.7z` files
-* `--jpg`: if set, will download `*-jpg.tar.7z` files
-* `--no-sample`: if set, will not download `train-tif-sample.tar.7z` file
-
-**Note**: It will ask everytime for your Kaggle account name and password. To avoid it, just define two environment variables:
-
-```bash
-$ export USERNAME="your-kaggle-username"
-$ export PASSWORD="your-kaggle-password"
+$ cd data; python download.py
 ```
 
 ## Training a model using the `main.py` script
@@ -25,13 +13,20 @@ This script allows training all models using a command-line interface. The call 
 $ main.py --manifest TRAIN --img_path DIR --arch ARCH train \
           --epochs N --lr LR
 ```
+
+Example of call which instantiates and trains a 20-layer ResNet with reconstruction by bilinear upsampling:
+````bash
+python main.py --img-dir ~/Documents/database/cdnet2014/dataset --shape 2,192,256 --arch resnet20 --arch-params 'up_mode=upsample' --manifest data/manifest.train --loss bce -b 16 train --epochs 90 --aug --lr 0.01 --wd 0.0002 --val data/manifest.val --save models/resnet20-bilinear.pth.tar
+````
+
 For more details, you may prompt
 ```bash
 $ main.py --help
 ```
-or just check out [main.py](main.py).
+or just check out [main.py](../main.py).
 
 This script will automatically save the model at every epoch.
+
 
 ## Evaluating a model using the `main.py` script
 
@@ -42,12 +37,6 @@ $ main.py --manifest EVAL --img_path DIR --arch ARCH \
           --load PATH eval
 ```
 
-## Generating the submission file using the `main.py` script
-
-```bash
-$ main.py --manifest EVAL --img_path DIR --arch ARCH \
-          --load PATH predict --threshold T --save SAVE
-```
 
 ## Custom scripts
 
@@ -123,13 +112,17 @@ class CustomCallback(object):
 * pytorch
 * torchvision
 * numpy
-* kaggle-cli
-* inflection
 * pandas
+* matplotlib
+* pillow
+* glob2
+* inflection
+* tqdm
+* visdom
 
 ## Cite
 
-## Acknowledge
+
 
 ## License
 See [LICENSE.md](LICENSE.md)

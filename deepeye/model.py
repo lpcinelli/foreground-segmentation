@@ -212,8 +212,8 @@ class Model(object):
 
                 for name, metric in metrics.items():
                     meters['{}_{}'.format(mode, name)].update(
-                        metric(cm_meter.tp, cm_meter.tn, cm_meter.fp,
-                               cm_meter.fn))
+                        metric(cm_meter.tp.item(), cm_meter.tn.item(),
+                               cm_meter.fp.item(), cm_meter.fn.item()))
 
                 if mode == 'train':
                     # compute gradient and do SGD step

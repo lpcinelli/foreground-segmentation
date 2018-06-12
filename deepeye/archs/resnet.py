@@ -34,6 +34,14 @@ def conv3x3(in_planes, out_planes, stride=1):
         bias=False)
 
 
+def identity_up(x, pool_idx, output_size):
+    return x
+
+
+def identity_down(x):
+    return (x, 0)
+
+
 class BasicBlock(nn.Module):
     expansion = 1
 
@@ -291,7 +299,7 @@ class ResNet(nn.Module):
                 maxpool = nn.MaxPool2d(
                     *preblock['pool'], return_indices=True, ceil_mode=True)
             else:
-                maxpool = lambda x: (x, 0)
+                maxpool = identity_down
 
         self.bn1 = nn.BatchNorm2d(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
@@ -406,8 +414,6 @@ class ResNetUpSample(nn.Module):
     """
 
     def __init__(self, input_shape, block, layers, num_classes=1, **kwargs):
-        #  dilation=1,
-        #  inplanes=64):
         super(ResNetUpSample, self).__init__()
 
         self.base = ResNet(
@@ -541,7 +547,7 @@ class ResNetDeconv(nn.Module):
                 bias=False)
         else:
             if preblock['pool'] is None:
-                self.unpool = lambda x, pool_idx, output_size: x
+                self.unpool = identity_up
             else:
                 self.unpool = nn.MaxUnpool2d(*preblock['pool'])
 
@@ -724,7 +730,7 @@ class ResNetDecodeShallow(nn.Module):
                  dilation=1,
                  upsampling='bilinear',
                  preblock=None):
-        super(ResNetShallowDecoder, self).__init__()
+        super(ResNetDecodeShallow, self).__init__()
 
         _, H, W = input_shape
         self.upsampling = upsampling

@@ -9,9 +9,6 @@ class MaskedBinaryCrossEntropy(torch.nn.BCEWithLogitsLoss):
             roi = torch.ones_like(input)
         return (F.binary_cross_entropy_with_logits(
             input, target, reduce=False) * roi).sum() / roi.sum()
-        # return (
-        #     F.binary_cross_entropy(torch.sigmoid(input), target, reduce=False
-        #                            ) * roi).sum() / roi.sum()
 
 
 mbce = MaskedBinaryCrossEntropy

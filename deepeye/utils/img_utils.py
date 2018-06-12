@@ -1,5 +1,4 @@
 from PIL import ImageFile  # To solve load problems
-from skimage import io
 
 # Valid images extensions
 IMG_EXTENSIONS = [
@@ -17,4 +16,3 @@ def is_image_file(filename):
     @return True if file is an image, else False.
     '''
     return filename.endswith(tuple(IMG_EXTENSIONS))
-
